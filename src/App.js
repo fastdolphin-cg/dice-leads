@@ -5,94 +5,121 @@ import './App.css';
 // ─── Config ───────────────────────────────────────────────────────────────────
 const ALLOWED_DOMAIN = 'fastdolphin.com';
 
-const LATAM_KEYWORDS = [
-  'mexico', 'brazil', 'brasil', 'colombia', 'argentina', 'chile',
-  'latin america', 'spanish', 'latam', 'bolivia', 'peru',
-  'costa rica', 'panama', 'ecuador', 'portuguese', 'maquiladora'
+const KEYWORDS = [
+  'mexico', 'spanish', 'brazil', 'argentina', 'colombia',
+  'ecuador', 'costa rica', 'panama', 'portuguese', 'latam',
+  'latin america', 'corp to corp', 'Brasil', 'maquiladora',
+  'chile', 'bolivia', 'peru'
 ];
 
-const TARGET_EMPLOYMENT_TYPES = ['contract', 'third party', 'corp to corp', 'c2c', 'third-party'];
+const MAX_PAGES = 3; // per keyword — increase if needed
 
-const DICE_API_BASE = 'https://job-search-api.svc.dhigroupinc.com/v1/dice/jobs/search';
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+function isValidEmail(e) { return e.toLowerCase().endsWith(`@${ALLOWED_DOMAIN}`); }
+function saveSession(e) { sessionStorage.setItem('fd_user', e); }
+function getSession() { return sessionStorage.getItem('fd_user'); }
+function clearSession() { sessionStorage.removeItem('fd_user'); }
 
-// ─── Auth helpers ─────────────────────────────────────────────────────────────
-function isValidEmail(email) {
-  return email.toLowerCase().endsWith(`@${ALLOWED_DOMAIN}`);
+// ─── Scraping via CORS proxy ──────────────────────────────────────────────────
+async function fetchHtml(url) {
+  // Try multiple CORS proxies in order
+  const proxies = [
+    `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    `https://thingproxy.freeboard.io/fetch/${url}`,
+  ];
+  for (const proxy of proxies) {
+    try {
+      const res = await fetch(proxy, { headers: { 'x-requested-with': 'XMLHttpRequest' } });
+      if (res.ok) {
+        const text = await res.text();
+        if (text && text.length > 500) return text;
+      }
+    } catch (_) { continue; }
+  }
+  throw new Error('All proxies failed');
 }
 
-function saveSession(email) {
-  sessionStorage.setItem('fd_user', email);
+function parseJobsFromHtml(html, keyword) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  const jobs = [];
+
+  // Dice embeds job data in a __NEXT_DATA__ script tag as JSON
+  const nextDataScript = doc.querySelector('#__NEXT_DATA__');
+  if (nextDataScript) {
+    try {
+      const nextData = JSON.parse(nextDataScript.textContent);
+      // Walk the props tree to find job listings
+      const props = nextData?.props?.pageProps;
+      const jobList =
+        props?.initialState?.jobs?.jobs ||
+        props?.jobs ||
+        props?.searchResults?.jobs ||
+        [];
+
+      if (jobList.length > 0) {
+        for (const job of jobList) {
+          const empType = Array.isArray(job.employmentType)
+            ? job.employmentType.join(', ')
+            : (job.employmentType || '');
+
+          const loc = job.jobLocation || job.location || {};
+          const location = typeof loc === 'string' ? loc
+            : [loc.city, loc.state, loc.country].filter(Boolean).join(', ');
+
+          jobs.push({
+            id: job.id || job.jobId || Math.random().toString(36).slice(2),
+            title: job.title || '',
+            company: job.hiringOrganization?.name || job.advertiserName || '',
+            location,
+            employmentType: empType,
+            workType: job.workFromHomeAvailability || '',
+            pay: job.salary || '',
+            postedDate: job.datePosted || job.date || '',
+            url: `https://www.dice.com/job-detail/${job.id}`,
+            keyword,
+          });
+        }
+        return jobs;
+      }
+    } catch (_) {}
+  }
+
+  // Fallback: parse visible HTML cards
+  const cards = doc.querySelectorAll('div[data-cy="search-result-item"], div[role="listitem"], [data-testid="job-card"]');
+  for (const card of cards) {
+    const titleEl = card.querySelector('a[data-testid="job-search-job-detail-link"], h5 a, .job-title a');
+    const companyEl = card.querySelector('p.mb-0, [data-cy="company-name"], .company-name');
+    const locEl = card.querySelector('p.text-sm, [data-cy="location"], .location');
+    const linkEl = card.querySelector('a[data-testid="job-search-job-card-link"], a[href*="job-detail"]');
+
+    const title = titleEl?.textContent?.trim() || '';
+    const company = companyEl?.textContent?.trim() || '';
+    const location = locEl?.textContent?.trim() || '';
+    const href = linkEl?.getAttribute('href') || '';
+    const url = href.startsWith('http') ? href : `https://www.dice.com${href}`;
+
+    if (title) {
+      jobs.push({
+        id: url.split('/').pop() || Math.random().toString(36).slice(2),
+        title, company, location,
+        employmentType: '', workType: '', pay: '', postedDate: '',
+        url, keyword,
+      });
+    }
+  }
+  return jobs;
 }
 
-function getSession() {
-  return sessionStorage.getItem('fd_user');
+async function scrapeKeyword(keyword, page, onProgress) {
+  const url = `https://www.dice.com/jobs?filters.postedDate=THREE&filters.employmentType=CONTRACTS%7CTHIRD_PARTY&q=${encodeURIComponent(keyword)}&page=${page}`;
+  onProgress(`Fetching "${keyword}" page ${page}…`);
+  const html = await fetchHtml(url);
+  return parseJobsFromHtml(html, keyword);
 }
 
-function clearSession() {
-  sessionStorage.removeItem('fd_user');
-}
-
-// ─── Dice scrape logic ────────────────────────────────────────────────────────
-async function fetchDiceJobs(keyword, page = 1) {
-  const params = new URLSearchParams({
-    q: keyword,
-    countryCode: 'US',
-    radius: '30',
-    radiusUnit: 'mi',
-    page: String(page),
-    pageSize: '20',
-    facets: 'employmentType|postedDate|workFromHomeAvailability|employerType|easyApply|isUnderrated',
-    filters: 'postedDate|THREE',
-    cleanJobTitle: keyword,
-    unemployment: 'false',
-  });
-
-  const res = await fetch(`${DICE_API_BASE}?${params.toString()}`, {
-    headers: {
-      'x-api-key': 'yRExoMhXAb4cPEGZ', // Dice public web key (no auth required)
-      'content-type': 'application/json',
-    },
-  });
-
-  if (!res.ok) throw new Error(`Dice API error: ${res.status}`);
-  const data = await res.json();
-  return data;
-}
-
-function jobMatchesFilters(job) {
-  const text = [
-    job.jobDescription || '',
-    job.employmentType || '',
-    job.employerType || '',
-    job.location || '',
-    job.title || '',
-  ].join(' ').toLowerCase();
-
-  const hasLatam = LATAM_KEYWORDS.some(kw => text.includes(kw));
-  const hasContract = TARGET_EMPLOYMENT_TYPES.some(et => text.includes(et));
-
-  return hasLatam && hasContract;
-}
-
-function buildJobRow(job, keyword) {
-  return {
-    id: job.id || job.jobId || Math.random().toString(36).slice(2),
-    title: job.title || '',
-    company: job.hiringOrganization?.name || job.advertiserName || '',
-    location: job.location || '',
-    employmentType: job.employmentType || '',
-    employerType: job.employerType || '',
-    workType: job.workFromHomeAvailability || '',
-    pay: job.salary || '',
-    postedDate: job.datePosted || job.date || '',
-    description: job.jobDescription ? job.jobDescription.replace(/<[^>]+>/g, '').slice(0, 200) + '…' : '',
-    url: job.applyDataItem?.externalApplyLink || `https://www.dice.com/jobs/detail/${job.id}`,
-    keyword,
-  };
-}
-
-// ─── Components ───────────────────────────────────────────────────────────────
-
+// ─── Login ────────────────────────────────────────────────────────────────────
 function LoginScreen({ onLogin }) {
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
@@ -102,12 +129,10 @@ function LoginScreen({ onLogin }) {
     e.preventDefault();
     if (!isValidEmail(email)) {
       setError('Access is restricted to @fastdolphin.com email addresses.');
-      setShaking(true);
-      setTimeout(() => setShaking(false), 500);
+      setShaking(true); setTimeout(() => setShaking(false), 500);
       return;
     }
-    saveSession(email);
-    onLogin(email);
+    saveSession(email); onLogin(email);
   }
 
   return (
@@ -121,74 +146,50 @@ function LoginScreen({ onLogin }) {
         <h1 className="login-title">Lead Finder</h1>
         <p className="login-sub">Sign in with your Fast Dolphin email to access LATAM contract leads from Dice.</p>
         <form onSubmit={handleSubmit} className="login-form">
-          <div className="input-group">
-            <input
-              type="email"
-              placeholder="you@fastdolphin.com"
-              value={email}
-              onChange={e => { setEmail(e.target.value); setError(''); }}
-              className="login-input"
-              autoFocus
-            />
-          </div>
-          {error && (
-            <div className="login-error">
-              <AlertCircle size={14} /> {error}
-            </div>
-          )}
-          <button type="submit" className="login-btn">
-            Continue
-          </button>
+          <input type="email" placeholder="you@fastdolphin.com" value={email}
+            onChange={e => { setEmail(e.target.value); setError(''); }}
+            className="login-input" autoFocus />
+          {error && <div className="login-error"><AlertCircle size={14} /> {error}</div>}
+          <button type="submit" className="login-btn">Continue</button>
         </form>
       </div>
     </div>
   );
 }
 
+// ─── Status Bar ───────────────────────────────────────────────────────────────
 function StatusBar({ status, progress }) {
   if (!status) return null;
-  const isRunning = status === 'running';
-  const isDone = status === 'done';
-  const isError = status === 'error';
-
   return (
     <div className={`status-bar ${status}`}>
-      {isRunning && <Loader2 size={14} className="spin" />}
-      {isDone && <CheckCircle2 size={14} />}
-      {isError && <AlertCircle size={14} />}
+      {status === 'running' && <Loader2 size={14} className="spin" />}
+      {status === 'done' && <CheckCircle2 size={14} />}
+      {status === 'error' && <AlertCircle size={14} />}
       <span className="status-text">{progress}</span>
     </div>
   );
 }
 
-function SortIcon({ col, sortCol, sortDir }) {
-  if (sortCol !== col) return <span className="sort-idle">↕</span>;
-  return sortDir === 'asc' ? <ChevronUp size={13} /> : <ChevronDown size={13} />;
-}
-
+// ─── Table ────────────────────────────────────────────────────────────────────
 const COLUMNS = [
-  { key: 'title', label: 'Job Title', sortable: true },
-  { key: 'company', label: 'Company', sortable: true },
-  { key: 'location', label: 'Location', sortable: true },
+  { key: 'title',          label: 'Job Title',       sortable: true  },
+  { key: 'company',        label: 'Company',         sortable: true  },
+  { key: 'location',       label: 'Location',        sortable: true  },
   { key: 'employmentType', label: 'Employment Type', sortable: false },
-  { key: 'employerType', label: 'Employer Type', sortable: false },
-  { key: 'workType', label: 'Work Type', sortable: false },
-  { key: 'pay', label: 'Pay', sortable: false },
-  { key: 'postedDate', label: 'Posted', sortable: true },
-  { key: 'keyword', label: 'Keyword', sortable: true },
-  { key: 'url', label: 'Link', sortable: false },
+  { key: 'workType',       label: 'Work Type',       sortable: false },
+  { key: 'pay',            label: 'Pay',             sortable: false },
+  { key: 'postedDate',     label: 'Posted',          sortable: true  },
+  { key: 'keyword',        label: 'Keyword',         sortable: true  },
+  { key: 'url',            label: 'Link',            sortable: false },
 ];
 
 function JobTable({ jobs }) {
-  const [search, setSearch] = useState('');
-  const [sortCol, setSortCol] = useState('postedDate');
-  const [sortDir, setSortDir] = useState('desc');
-  const [filterType, setFilterType] = useState('');
+  const [search, setSearch]     = useState('');
+  const [sortCol, setSortCol]   = useState('postedDate');
+  const [sortDir, setSortDir]   = useState('desc');
+  const [filterKw, setFilterKw] = useState('');
 
-  const employmentTypes = useMemo(() => {
-    const types = new Set(jobs.map(j => j.employmentType).filter(Boolean));
-    return [...types];
-  }, [jobs]);
+  const keywords = useMemo(() => [...new Set(jobs.map(j => j.keyword))].sort(), [jobs]);
 
   const filtered = useMemo(() => {
     let rows = [...jobs];
@@ -197,22 +198,16 @@ function JobTable({ jobs }) {
       rows = rows.filter(j =>
         j.title.toLowerCase().includes(q) ||
         j.company.toLowerCase().includes(q) ||
-        j.location.toLowerCase().includes(q) ||
-        j.keyword.toLowerCase().includes(q)
+        j.location.toLowerCase().includes(q)
       );
     }
-    if (filterType) {
-      rows = rows.filter(j => j.employmentType === filterType);
-    }
-    if (sortCol) {
-      rows.sort((a, b) => {
-        const av = a[sortCol] || '';
-        const bv = b[sortCol] || '';
-        return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
-      });
-    }
+    if (filterKw) rows = rows.filter(j => j.keyword === filterKw);
+    rows.sort((a, b) => {
+      const av = a[sortCol] || '', bv = b[sortCol] || '';
+      return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+    });
     return rows;
-  }, [jobs, search, sortCol, sortDir, filterType]);
+  }, [jobs, search, sortCol, sortDir, filterKw]);
 
   function toggleSort(col) {
     if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -223,10 +218,8 @@ function JobTable({ jobs }) {
     const headers = COLUMNS.map(c => c.label);
     const rows = filtered.map(j => COLUMNS.map(c => `"${(j[c.key] || '').replace(/"/g, '""')}"`));
     const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
     a.download = `dice-leads-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
   }
@@ -237,59 +230,49 @@ function JobTable({ jobs }) {
         <div className="toolbar-left">
           <div className="search-wrap">
             <Search size={14} className="search-icon" />
-            <input
-              className="search-input"
-              placeholder="Search title, company, location…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
+            <input className="search-input" placeholder="Search title, company, location…"
+              value={search} onChange={e => setSearch(e.target.value)} />
             {search && <button className="search-clear" onClick={() => setSearch('')}><X size={12} /></button>}
           </div>
-          {employmentTypes.length > 0 && (
+          {keywords.length > 0 && (
             <div className="filter-wrap">
               <Filter size={13} />
-              <select className="filter-select" value={filterType} onChange={e => setFilterType(e.target.value)}>
-                <option value="">All employment types</option>
-                {employmentTypes.map(t => <option key={t} value={t}>{t}</option>)}
+              <select className="filter-select" value={filterKw} onChange={e => setFilterKw(e.target.value)}>
+                <option value="">All keywords</option>
+                {keywords.map(k => <option key={k} value={k}>{k}</option>)}
               </select>
             </div>
           )}
         </div>
         <div className="toolbar-right">
           <span className="result-count">{filtered.length} lead{filtered.length !== 1 ? 's' : ''}</span>
-          <button className="export-btn" onClick={exportCSV}>
-            <Download size={13} /> Export CSV
-          </button>
+          <button className="export-btn" onClick={exportCSV}><Download size={13} /> Export CSV</button>
         </div>
       </div>
-
       <div className="table-wrap">
         <table className="leads-table">
           <thead>
             <tr>
               {COLUMNS.map(col => (
-                <th
-                  key={col.key}
-                  className={col.sortable ? 'sortable' : ''}
-                  onClick={col.sortable ? () => toggleSort(col.key) : undefined}
-                >
+                <th key={col.key} className={col.sortable ? 'sortable' : ''}
+                  onClick={col.sortable ? () => toggleSort(col.key) : undefined}>
                   {col.label}
-                  {col.sortable && <SortIcon col={col.key} sortCol={sortCol} sortDir={sortDir} />}
+                  {col.sortable && (sortCol === col.key
+                    ? (sortDir === 'asc' ? <ChevronUp size={13} /> : <ChevronDown size={13} />)
+                    : <span className="sort-idle">↕</span>)}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 ? (
-              <tr><td colSpan={COLUMNS.length} className="empty-row">No leads match your filters.</td></tr>
-            ) : (
-              filtered.map(job => (
+            {filtered.length === 0
+              ? <tr><td colSpan={COLUMNS.length} className="empty-row">No leads match your filters.</td></tr>
+              : filtered.map(job => (
                 <tr key={job.id} className="job-row">
                   <td className="col-title">{job.title}</td>
                   <td className="col-company">{job.company}</td>
                   <td className="col-location">{job.location}</td>
                   <td><span className="tag tag-blue">{job.employmentType || '—'}</span></td>
-                  <td><span className="tag tag-teal">{job.employerType || '—'}</span></td>
                   <td>{job.workType || '—'}</td>
                   <td className="col-pay">{job.pay || '—'}</td>
                   <td className="col-date">{job.postedDate ? new Date(job.postedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</td>
@@ -301,7 +284,7 @@ function JobTable({ jobs }) {
                   </td>
                 </tr>
               ))
-            )}
+            }
           </tbody>
         </table>
       </div>
@@ -311,76 +294,72 @@ function JobTable({ jobs }) {
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
-  const [user, setUser] = useState(getSession());
-  const [scrapeStatus, setScrapeStatus] = useState(null); // null | 'running' | 'done' | 'error'
-  const [progress, setProgress] = useState('');
-  const [jobs, setJobs] = useState([]);
-  const [lastRun, setLastRun] = useState(null);
+  const [user, setUser]           = useState(getSession());
+  const [scrapeStatus, setStatus] = useState(null);
+  const [progress, setProgress]   = useState('');
+  const [jobs, setJobs]           = useState([]);
+  const [lastRun, setLastRun]     = useState(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem('fd_jobs');
-    const savedTime = localStorage.getItem('fd_last_run');
-    if (saved) { try { setJobs(JSON.parse(saved)); } catch (_) {} }
-    if (savedTime) setLastRun(new Date(savedTime));
+    try {
+      const saved = localStorage.getItem('fd_jobs');
+      const savedTime = localStorage.getItem('fd_last_run');
+      if (saved) setJobs(JSON.parse(saved));
+      if (savedTime) setLastRun(new Date(savedTime));
+    } catch (_) {}
   }, []);
 
   async function runScrape() {
-    setScrapeStatus('running');
+    setStatus('running');
     setJobs([]);
     const found = [];
     const seen = new Set();
+    let errors = 0;
 
-    try {
-      for (let i = 0; i < LATAM_KEYWORDS.length; i++) {
-        const kw = LATAM_KEYWORDS[i];
-        setProgress(`Searching "${kw}" (${i + 1} of ${LATAM_KEYWORDS.length})…`);
+    for (let ki = 0; ki < KEYWORDS.length; ki++) {
+      const kw = KEYWORDS[ki];
+      for (let page = 1; page <= MAX_PAGES; page++) {
+        try {
+          setProgress(`Searching "${kw}" (${ki + 1}/${KEYWORDS.length})…`);
+          const results = await scrapeKeyword(kw, page, setProgress);
+          if (!results.length) break;
 
-        for (let page = 1; page <= 2; page++) {
-          try {
-            const data = await fetchDiceJobs(kw, page);
-            const hits = data.data || data.jobs || [];
-            if (hits.length === 0) break;
-
-            for (const job of hits) {
-              const jobId = job.id || job.jobId;
-              if (seen.has(jobId)) continue;
-              if (!jobMatchesFilters(job)) continue;
-              seen.add(jobId);
-              found.push(buildJobRow(job, kw));
-            }
-          } catch (err) {
-            console.warn(`Page ${page} for "${kw}" failed:`, err.message);
-            break;
+          let newOnPage = 0;
+          for (const job of results) {
+            if (seen.has(job.id)) continue;
+            seen.add(job.id);
+            found.push(job);
+            newOnPage++;
           }
-          await new Promise(r => setTimeout(r, 300));
+          if (newOnPage === 0) break; // all dupes, stop paging
+        } catch (err) {
+          console.warn(`Error on "${kw}" page ${page}:`, err.message);
+          errors++;
+          break;
         }
+        await new Promise(r => setTimeout(r, 600));
       }
+    }
 
-      const now = new Date();
-      setJobs(found);
-      setLastRun(now);
-      localStorage.setItem('fd_jobs', JSON.stringify(found));
-      localStorage.setItem('fd_last_run', now.toISOString());
-      setScrapeStatus('done');
-      setProgress(`Found ${found.length} LATAM contract lead${found.length !== 1 ? 's' : ''} from the last 3 days.`);
-    } catch (err) {
-      setScrapeStatus('error');
-      setProgress(`Something went wrong: ${err.message}`);
+    const now = new Date();
+    setJobs(found);
+    setLastRun(now);
+    localStorage.setItem('fd_jobs', JSON.stringify(found));
+    localStorage.setItem('fd_last_run', now.toISOString());
+
+    if (found.length > 0) {
+      setStatus('done');
+      setProgress(`Found ${found.length} leads across ${KEYWORDS.length} keywords.`);
+    } else {
+      setStatus('error');
+      setProgress(`No results returned. Dice may be blocking the proxy (${errors} errors). Try again in a few minutes.`);
     }
   }
 
-  function handleLogout() {
-    clearSession();
-    setUser(null);
-  }
-
-  if (!user) {
-    return <LoginScreen onLogin={email => setUser(email)} />;
-  }
+  if (!user) return <LoginScreen onLogin={email => setUser(email)} />;
 
   return (
     <div className="app">
-      {/* Header */}
       <header className="app-header">
         <div className="header-inner">
           <div className="header-brand">
@@ -393,38 +372,32 @@ export default function App() {
           </div>
           <div className="header-right">
             <span className="header-user">{user}</span>
-            <button className="logout-btn" onClick={handleLogout} title="Sign out">
+            <button className="logout-btn" onClick={() => { clearSession(); setUser(null); }} title="Sign out">
               <LogOut size={14} />
             </button>
           </div>
         </div>
       </header>
 
-      {/* Hero / Controls */}
       <section className="hero">
         <div className="hero-inner">
           <div className="hero-text">
             <h2 className="hero-title">LATAM Contract Leads</h2>
             <p className="hero-sub">
-              Jobs posted on Dice in the last 3 days matching Latin America keywords and contract employment types.
+              Contract & Third Party jobs on Dice from the last 3 days matching any LATAM keyword.
               {lastRun && <span className="last-run"> Last pull: {lastRun.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>}
             </p>
           </div>
-          <button
-            className={`scrape-btn ${scrapeStatus === 'running' ? 'running' : ''}`}
-            onClick={runScrape}
-            disabled={scrapeStatus === 'running'}
-          >
+          <button className={`scrape-btn ${scrapeStatus === 'running' ? 'running' : ''}`}
+            onClick={runScrape} disabled={scrapeStatus === 'running'}>
             {scrapeStatus === 'running'
               ? <><Loader2 size={16} className="spin" /> Pulling leads…</>
-              : <><RefreshCw size={16} /> Pull fresh leads</>
-            }
+              : <><RefreshCw size={16} /> Pull fresh leads</>}
           </button>
         </div>
         <StatusBar status={scrapeStatus} progress={progress} />
       </section>
 
-      {/* Stats row */}
       {jobs.length > 0 && (
         <div className="stats-row">
           <div className="stat-card">
@@ -446,11 +419,8 @@ export default function App() {
         </div>
       )}
 
-      {/* Table */}
       <main className="main-content">
-        {jobs.length > 0 ? (
-          <JobTable jobs={jobs} />
-        ) : (
+        {jobs.length > 0 ? <JobTable jobs={jobs} /> : (
           <div className="empty-state">
             <Fish size={40} className="empty-fish" />
             <p className="empty-title">No leads yet</p>
@@ -459,9 +429,7 @@ export default function App() {
         )}
       </main>
 
-      <footer className="app-footer">
-        Fast Dolphin · Internal use only · {new Date().getFullYear()}
-      </footer>
+      <footer className="app-footer">Fast Dolphin · Internal use only · {new Date().getFullYear()}</footer>
     </div>
   );
 }
