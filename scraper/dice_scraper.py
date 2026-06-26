@@ -61,7 +61,10 @@ LATAM_CITIES = [
 
 def is_real_latam_job(title, description, location, keyword):
     """Filter out false positives like 'New Mexico' or office mentions."""
+    import re
+
     text = f"{title} {description} {location}".lower()
+    latam_kw = keyword.lower()
 
     # Hard reject: New Mexico without real LATAM signals
     if "new mexico" in text:
@@ -69,14 +72,21 @@ def is_real_latam_job(title, description, location, keyword):
         if not has_latam_city:
             return False
 
+    # Use word boundary matching to avoid substring false positives
+    # e.g. "peru" should NOT match inside "perl", "peruse", "imperuse"
+    kw_pattern = re.compile(r'\b' + re.escape(latam_kw) + r'\b', re.IGNORECASE)
+
+    # Check if keyword actually appears as a whole word anywhere in title/description/location
+    if not kw_pattern.search(text):
+        return False
+
     # Hard reject: keyword appears only in office/location boilerplate
-    latam_kw = keyword.lower()
     if latam_kw in ["mexico", "brazil", "brasil", "colombia", "argentina",
                     "chile", "bolivia", "peru", "costa rica", "panama", "ecuador"]:
         for pattern in OFFICE_PATTERNS:
-            if pattern in text and latam_kw in text:
+            if pattern in text and kw_pattern.search(text):
                 # Check if keyword also appears in title or location directly
-                if latam_kw not in title.lower() and latam_kw not in location.lower():
+                if not kw_pattern.search(title.lower()) and not kw_pattern.search(location.lower()):
                     # Check for LATAM city names as positive signal
                     if not any(city in text for city in LATAM_CITIES):
                         if "spanish" not in text and "bilingual" not in text:
@@ -194,8 +204,13 @@ def scrape_all():
                             company = safe_text(driver, "a[data-cy='companyNameLink']") or info["company"]
                             recruiter = safe_text(driver, "p[data-testid='recruiterName']")
 
-                            # Description for filtering
-                            description = safe_text(driver, "div.job-description") or ""
+                            # Description for filtering — only main job content, not similar jobs
+                            description = ""
+                            try:
+                                desc_el = driver.find_element(By.CSS_SELECTOR, "div.job-description")
+                                description = desc_el.text[:2000]  # limit to first 2000 chars
+                            except:
+                                pass
 
                             # Filter false positives
                             if not is_real_latam_job(title, description, location, keyword):
