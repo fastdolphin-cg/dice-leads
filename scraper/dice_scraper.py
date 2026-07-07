@@ -46,25 +46,42 @@ SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}"
 
 # ─── Claude AI Filter ─────────────────────────────────────────────────────────
 
-AI_PROMPT = """You are a recruiting analyst for Fast Dolphin Consulting Group, a US-based IT staffing company that places consultants in Latin America or places Spanish/Portuguese-speaking consultants anywhere.
+AI_PROMPT = """You are a strict recruiting analyst. Your job is to decide if a job posting has a GENUINE Latin America connection meaning the actual job requirements, candidate location, or language skills involve Latin America.
 
-Analyze this job posting and answer: Is this a GENUINE opportunity for Fast Dolphin?
+STEP 1: Read the ENTIRE job description carefully.
 
-A job IS genuine if ANY of these are true:
-- The role requires someone located in Latin America (Mexico, Brazil, Colombia, Argentina, Chile, Peru, Ecuador, Costa Rica, Panama, Bolivia, etc.)
-- The role requires Spanish or Portuguese language skills
-- The role explicitly mentions serving LATAM markets, clients, or regions
-- The role is bilingual (English + Spanish or Portuguese)
-- The job is based in a Latin American city (e.g. Mexico City, Guadalajara, Bogota, Sao Paulo, Buenos Aires, Santiago, Lima)
-- The role mentions "nearshore" work involving Latin America
+STEP 2: Understand the nature of the job description and decide if it is related with Latin America or Spanish/Portuguese language. The following is a partial list of keywords: Latin America, Mexico, Brazil, Colombia, Argentina, Chile, Peru, Ecuador, Costa Rica, Panama, Bolivia, LATAM, Maquiladora, Spanish, or Portuguese. If the job mentions any other Latin American country not listed here (such as Paraguay, Uruguay, Venezuela, Honduras, Guatemala, Nicaragua, Dominican Republic, etc.), please include it, as long as it is under the context explained in this prompt.
 
-A job is NOT genuine if:
-- Latin America is only mentioned as a company office location in a footer or boilerplate (e.g. "offices in USA, Mexico, India")
-- The word "Mexico" refers to the US state of New Mexico with no other LATAM connection
-- "Peru" appears only as part of the word "Perl" (programming language) or other unrelated words
-- The company just lists countries where they have presence but the actual job has no LATAM requirement
-- "Spanish" refers to something other than the Spanish language (e.g. a person's name, a place in Spain unrelated to LATAM)
-- Latin America is mentioned only in an equal opportunity employment statement
+STEP 3: For EACH mention, determine its context.
+
+AUTOMATICALLY REJECT - answer NO - if Latin America, Spanish, Portuguese, or any related keyword ONLY appears in:
+- Email signature or footer listing office locations such as "USA | CANADA | Mexico | INDIA" or "offices in New York, Mexico, India"
+- Company boilerplate like "we have offices in..." or "presence in..." or "locations in..." or "internationally in..."
+- Equal opportunity employment statements
+- The US state of New Mexico - not the country Mexico
+- The word "Perl" which is a programming language - this is NOT "Peru"
+- A recruiter contact information or company address
+- Phrases describing where the COMPANY operates, NOT where the CANDIDATE works
+
+ACCEPT - answer YES - ONLY if Latin America, Spanish, Portuguese, or any related keyword appears in:
+- The actual job requirements such as "must be bilingual" or "Spanish required" or "based in Mexico City"
+- The candidate work location such as "position located in Bogota" or "remote from LATAM"
+- Required skills or experience such as "LATAM market experience" or "serve Latin American clients"
+- Language requirements such as "fluent Spanish" or "Portuguese required" or "bilingual English/Spanish"
+- The role description itself mentioning LATAM work or clients
+- Any Latin American country even if not in the keyword list above, as long as it is in the context of the job requirement and not just a company office mention
+
+CONCRETE EXAMPLES:
+- "USA | CANADA | Mexico | INDIA" in a footer = NO
+- "Support Benefits implementation within the USA" with Mexico only in footer = NO
+- "offices in Mexico City and India" = NO
+- "PruTech has nearshore offices in Mexico City" but job is in Brooklyn NY = NO
+- "Must be fluent in Spanish" = YES
+- "Position based in Guadalajara" = YES
+- "Serve LATAM clients" = YES
+- "Bilingual English/Spanish required" = YES
+- "Nearshore delivery from Mexico" = YES
+- "Candidate must have experience working with teams in Paraguay" = YES
 
 Job Title: {title}
 Company: {company}
@@ -74,18 +91,17 @@ Keyword that matched: {keyword}
 Job Description:
 {description}
 
-Respond with ONLY a JSON object in this exact format:
-{{"decision": "YES" or "NO", "reason": "one sentence explanation"}}"""
+Think step by step. Understand the nature of the job. Find every relevant mention. Determine its context. Then decide.
+
+Respond with ONLY a JSON object in this exact format with no other text:
+{{"decision": "YES" or "NO", "reason": "one sentence explaining the specific mention and why it does or does not qualify"}}"""
 
 
 def ai_filter_job(title, company, location, keyword, description):
     """Use Claude AI to intelligently determine if this is a genuine LATAM opportunity."""
     try:
         client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-
-        # Truncate description to avoid excessive token usage
         desc_truncated = description[:3000] if len(description) > 3000 else description
-
         prompt = AI_PROMPT.format(
             title=title,
             company=company,
@@ -93,23 +109,17 @@ def ai_filter_job(title, company, location, keyword, description):
             keyword=keyword,
             description=desc_truncated
         )
-
         message = client.messages.create(
-            model="claude-haiku-4-5-20251001",  # Fast and cheap - perfect for filtering
-            max_tokens=150,
+            model="claude-haiku-4-5-20251001",
+            max_tokens=200,
             messages=[{"role": "user", "content": prompt}]
         )
-
         response_text = message.content[0].text.strip()
-
-        # Parse JSON response
         result = json.loads(response_text)
         decision = result.get("decision", "NO").upper()
         reason = result.get("reason", "")
-
         print(f"  🤖 AI: {decision} — {reason}")
         return decision == "YES", reason
-
     except Exception as e:
         print(f"  ⚠️ AI filter error: {e} — keeping job by default")
         return True, "AI filter error - included by default"
@@ -206,17 +216,14 @@ def scrape_all():
                             job_url = card.find_element(By.CSS_SELECTOR, 'a[data-testid="job-search-job-card-link"]').get_attribute("href")
                         except:
                             job_url = ""
-
                         try:
                             title = card.find_element(By.CSS_SELECTOR, 'a[data-testid="job-search-job-detail-link"]').text.strip()
                         except:
                             title = ""
-
                         try:
                             location = card.find_element(By.CSS_SELECTOR, 'p.text-sm.font-normal.text-zinc-600').text.strip()
                         except:
                             location = ""
-
                         try:
                             company = card.find_element(By.CSS_SELECTOR, 'p.mb-0.line-clamp-2.text-sm').text.strip()
                         except:
@@ -236,7 +243,6 @@ def scrape_all():
 
                     print(f"  🔗 Found {len(page_jobs)} cards")
 
-                    # Visit each job detail page
                     for info in page_jobs:
                         if info["url"] in seen_urls:
                             continue
@@ -258,7 +264,6 @@ def scrape_all():
                             company = safe_text(driver, "a[data-cy='companyNameLink']") or info["company"]
                             recruiter = safe_text(driver, "p[data-testid='recruiterName']")
 
-                            # Get job description (main content only)
                             description = ""
                             try:
                                 desc_el = driver.find_element(By.CSS_SELECTOR, "div.job-description")
@@ -291,7 +296,8 @@ def scrape_all():
                                 "Contract Duration": duration,
                                 "Pay": pay,
                                 "Keyword": keyword,
-                                "AI Verified": "✅ Yes",
+                                "AI Verified": "Yes",
+                                "AI Reason": reason,
                                 "Job URL": info["url"],
                                 "Date Scraped": datetime.now().strftime("%Y-%m-%d"),
                             })
@@ -326,7 +332,8 @@ def build_basic_row(info, keyword):
         "Contract Duration": "",
         "Pay": "",
         "Keyword": keyword,
-        "AI Verified": "⚠️ Not checked",
+        "AI Verified": "Not checked",
+        "AI Reason": "",
         "Job URL": info["url"],
         "Date Scraped": datetime.now().strftime("%Y-%m-%d"),
     }
@@ -358,16 +365,15 @@ def write_to_sheets(jobs):
 
     headers = ["Job Title", "Company", "Recruiter", "Location", "Employment Type",
                "Work Type", "Corp to Corp", "Contract Duration", "Pay",
-               "Keyword", "AI Verified", "Job URL", "Date Scraped"]
+               "Keyword", "AI Verified", "AI Reason", "Job URL", "Date Scraped"]
 
     worksheet.append_row(headers)
 
     for job in jobs:
         worksheet.append_row([job.get(h, "") for h in headers])
 
-    worksheet.format("A1:M1", {"textFormat": {"bold": True}})
+    worksheet.format("A1:N1", {"textFormat": {"bold": True}})
 
-    # Keep only MAX_TABS most recent tabs
     all_sheets = sh.worksheets()
     dated_sheets = [s for s in all_sheets if s.title != "Sheet1"]
     if len(dated_sheets) > MAX_TABS:
@@ -384,7 +390,7 @@ def write_to_sheets(jobs):
 
 def send_email(job_count, tab_name):
     today = datetime.now().strftime("%B %d, %Y")
-    subject = f"🐬 Fast Dolphin LATAM Leads — {today} ({job_count} verified leads)"
+    subject = f"Fast Dolphin LATAM Leads — {today} ({job_count} verified leads)"
 
     body = f"""
 <html>
@@ -399,15 +405,15 @@ def send_email(job_count, tab_name):
       <div style="background: #f0f4ff; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center;">
         <div style="font-size: 42px; font-weight: bold; color: #1B6CF2;">{job_count}</div>
         <div style="color: #666; font-size: 14px;">verified LATAM contract leads found today</div>
-        <div style="color: #00C2A8; font-size: 12px; margin-top: 6px;">✅ Each lead reviewed by AI to confirm genuine LATAM relevance</div>
+        <div style="color: #00C2A8; font-size: 12px; margin-top: 6px;">Each lead reviewed by AI to confirm genuine LATAM relevance</div>
       </div>
       <p style="color: #555;">Results are in the <strong>{tab_name}</strong> tab of your Google Sheet:</p>
       <div style="text-align: center; margin: 24px 0;">
         <a href="{SHEET_URL}" style="background: #1B6CF2; color: white; padding: 14px 28px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 15px;">
-          📊 Open Google Sheet
+          Open Google Sheet
         </a>
       </div>
-      <p style="color: #999; font-size: 12px;">Filtered for: Mexico · Brazil · Colombia · Argentina · Chile · LATAM · Spanish · and more<br>Employment type: Contract & Third Party only · Posted in last 3 days · AI-verified for quality</p>
+      <p style="color: #999; font-size: 12px;">Filtered for: Mexico · Brazil · Colombia · Argentina · Chile · LATAM · Spanish · and more<br>Employment type: Contract and Third Party only · Posted in last 3 days · AI-verified for quality</p>
     </div>
     <div style="background: #f9f9f9; padding: 16px 32px; text-align: center; border-top: 1px solid #eee;">
       <p style="color: #aaa; font-size: 12px; margin: 0;">Fast Dolphin Consulting Group · Internal use only</p>
@@ -433,18 +439,18 @@ def send_email(job_count, tab_name):
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    print(f"🐬 Fast Dolphin LATAM Lead Scraper — AI Edition")
-    print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"Fast Dolphin LATAM Lead Scraper — AI Edition")
+    print(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 50)
 
-    print("\n🔎 Starting scrape...")
+    print("\nStarting scrape...")
     jobs = scrape_all()
-    print(f"\n✅ Total verified leads: {len(jobs)}")
+    print(f"\nTotal verified leads: {len(jobs)}")
 
-    print("\n📊 Writing to Google Sheets...")
+    print("\nWriting to Google Sheets...")
     tab_name = write_to_sheets(jobs)
 
-    print("\n📧 Sending email notification...")
+    print("\nSending email notification...")
     send_email(len(jobs), tab_name)
 
-    print("\n🎉 Done!")
+    print("\nDone!")
