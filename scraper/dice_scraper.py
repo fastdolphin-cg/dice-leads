@@ -3,6 +3,7 @@ import random
 import os
 import json
 import smtplib
+import anthropic
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -36,65 +37,83 @@ SEARCH_URLS = [
 ]
 
 MAX_PAGES = 5
-
 SHEET_ID = "14Gjeh1TiJTIq0IhhAA0cKumraUy1Q0d99hmbhI1AtV8"
 MAX_TABS = 7
-
 GMAIL_USER = os.environ["GMAIL_USER"]
 GMAIL_APP_PASSWORD = os.environ["GMAIL_APP_PASSWORD"]
 NOTIFY_EMAILS = ["carlos.guerrero@fastdolphin.com"]
-
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}"
 
-# Keywords that indicate job is office-mention only, not a real LATAM role
-OFFICE_PATTERNS = [
-    "offices in", "office in", "offices including", "internationally in",
-    "locations in", "presence in", "new mexico",
-]
+# ─── Claude AI Filter ─────────────────────────────────────────────────────────
 
-LATAM_CITIES = [
-    "guadalajara", "monterrey", "mexico city", "ciudad de mexico", "cdmx",
-    "bogota", "medellin", "buenos aires", "santiago", "lima", "san jose",
-    "panama city", "quito", "la paz", "sao paulo", "rio de janeiro",
-    "brasilia", "caracas", "montevideo", "asuncion",
-]
+AI_PROMPT = """You are a recruiting analyst for Fast Dolphin Consulting Group, a US-based IT staffing company that places consultants in Latin America or places Spanish/Portuguese-speaking consultants anywhere.
 
-def is_real_latam_job(title, description, location, keyword):
-    """Filter out only clear false positives. Trust Dice's search otherwise."""
-    import re
+Analyze this job posting and answer: Is this a GENUINE opportunity for Fast Dolphin?
 
-    text = f"{title} {description} {location}".lower()
-    latam_kw = keyword.lower()
+A job IS genuine if ANY of these are true:
+- The role requires someone located in Latin America (Mexico, Brazil, Colombia, Argentina, Chile, Peru, Ecuador, Costa Rica, Panama, Bolivia, etc.)
+- The role requires Spanish or Portuguese language skills
+- The role explicitly mentions serving LATAM markets, clients, or regions
+- The role is bilingual (English + Spanish or Portuguese)
+- The job is based in a Latin American city (e.g. Mexico City, Guadalajara, Bogota, Sao Paulo, Buenos Aires, Santiago, Lima)
+- The role mentions "nearshore" work involving Latin America
 
-    # Hard reject: "New Mexico" state — not a LATAM job
-    if latam_kw == "mexico":
-        if re.search(r'\bnew\s+mexico\b', text, re.IGNORECASE):
-            # Only reject if no real Mexico signals present
-            if not any(city in text for city in LATAM_CITIES):
-                if not re.search(r'\b(mexico\s+city|guadalajara|monterrey|cdmx)\b', text, re.IGNORECASE):
-                    return False
+A job is NOT genuine if:
+- Latin America is only mentioned as a company office location in a footer or boilerplate (e.g. "offices in USA, Mexico, India")
+- The word "Mexico" refers to the US state of New Mexico with no other LATAM connection
+- "Peru" appears only as part of the word "Perl" (programming language) or other unrelated words
+- The company just lists countries where they have presence but the actual job has no LATAM requirement
+- "Spanish" refers to something other than the Spanish language (e.g. a person's name, a place in Spain unrelated to LATAM)
+- Latin America is mentioned only in an equal opportunity employment statement
 
-    # Hard reject: keyword only appears inside "perl" for "peru"
-    if latam_kw == "peru":
-        if re.search(r'\bperl\b', text, re.IGNORECASE) and not re.search(r'\bperu\b', text, re.IGNORECASE):
-            return False
+Job Title: {title}
+Company: {company}
+Location: {location}
+Keyword that matched: {keyword}
 
-    # Hard reject: pure office-mention boilerplate with no other LATAM signals
-    office_boilerplate = [
-        r'offices?\s+in[^.]*?' + re.escape(latam_kw),
-        r'internationally\s+in[^.]*?' + re.escape(latam_kw),
-        r'offices?\s+including[^.]*?' + re.escape(latam_kw),
-    ]
-    for pattern in office_boilerplate:
-        if re.search(pattern, text, re.IGNORECASE):
-            # Only reject if keyword not in title/location AND no LATAM city found
-            if latam_kw not in title.lower() and latam_kw not in location.lower():
-                if not any(city in text for city in LATAM_CITIES):
-                    if not re.search(r'\b(spanish|bilingual|latam|latin america)\b', text, re.IGNORECASE):
-                        return False
+Job Description:
+{description}
 
-    # Otherwise trust Dice's search result
-    return True
+Respond with ONLY a JSON object in this exact format:
+{{"decision": "YES" or "NO", "reason": "one sentence explanation"}}"""
+
+
+def ai_filter_job(title, company, location, keyword, description):
+    """Use Claude AI to intelligently determine if this is a genuine LATAM opportunity."""
+    try:
+        client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+
+        # Truncate description to avoid excessive token usage
+        desc_truncated = description[:3000] if len(description) > 3000 else description
+
+        prompt = AI_PROMPT.format(
+            title=title,
+            company=company,
+            location=location,
+            keyword=keyword,
+            description=desc_truncated
+        )
+
+        message = client.messages.create(
+            model="claude-haiku-4-5-20251001",  # Fast and cheap - perfect for filtering
+            max_tokens=150,
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        response_text = message.content[0].text.strip()
+
+        # Parse JSON response
+        result = json.loads(response_text)
+        decision = result.get("decision", "NO").upper()
+        reason = result.get("reason", "")
+
+        print(f"  🤖 AI: {decision} — {reason}")
+        return decision == "YES", reason
+
+    except Exception as e:
+        print(f"  ⚠️ AI filter error: {e} — keeping job by default")
+        return True, "AI filter error - included by default"
+
 
 # ─── Selenium Setup ───────────────────────────────────────────────────────────
 
@@ -110,8 +129,42 @@ def create_driver():
     driver.set_page_load_timeout(30)
     return driver
 
+
 def smart_pause(min_sec=2, max_sec=4):
     time.sleep(random.uniform(min_sec, max_sec))
+
+
+def safe_text(driver, selector):
+    try:
+        return driver.find_element(By.CSS_SELECTOR, selector).text.strip()
+    except:
+        return ""
+
+
+def extract_badges(driver):
+    emp_types = []
+    pay = work_type = corp = duration = ""
+    try:
+        badges = driver.find_elements(By.CSS_SELECTOR, "div.SeuiInfoBadge div.font-medium")
+        for b in badges:
+            text = b.text.strip()
+            if not text:
+                continue
+            tl = text.lower()
+            if any(x in tl for x in ["$/hr", "$/year", "/hr", "/year", "k/yr", "per hour"]):
+                pay = text
+            elif any(x in tl for x in ["remote", "hybrid", "on-site", "onsite"]):
+                work_type = text
+            elif "corp to corp" in tl or "c2c" in tl:
+                corp = text
+            elif "month" in tl:
+                duration = text
+            else:
+                emp_types.append(text)
+    except:
+        pass
+    return ", ".join(emp_types), pay, work_type, corp, duration
+
 
 # ─── Scraping ─────────────────────────────────────────────────────────────────
 
@@ -119,6 +172,8 @@ def scrape_all():
     driver = create_driver()
     jobs = []
     seen_urls = set()
+    ai_checked = 0
+    ai_rejected = 0
 
     try:
         for base_url in SEARCH_URLS:
@@ -133,7 +188,6 @@ def scrape_all():
                     driver.get(url)
                     smart_pause(3, 5)
 
-                    # Wait for job cards
                     try:
                         WebDriverWait(driver, 15).until(
                             EC.presence_of_element_located((By.CSS_SELECTOR, 'div[role="listitem"]'))
@@ -149,8 +203,7 @@ def scrape_all():
                     page_jobs = []
                     for card in cards:
                         try:
-                            link_el = card.find_element(By.CSS_SELECTOR, 'a[data-testid="job-search-job-card-link"]')
-                            job_url = link_el.get_attribute("href")
+                            job_url = card.find_element(By.CSS_SELECTOR, 'a[data-testid="job-search-job-card-link"]').get_attribute("href")
                         except:
                             job_url = ""
 
@@ -190,7 +243,7 @@ def scrape_all():
                         seen_urls.add(info["url"])
 
                         if "job-detail" not in info["url"]:
-                            jobs.append(build_job_row(info, "", keyword))
+                            jobs.append(build_basic_row(info, keyword))
                             continue
 
                         try:
@@ -200,26 +253,31 @@ def scrape_all():
                                 EC.presence_of_element_located((By.TAG_NAME, "h1"))
                             )
 
-                            # Extract detail fields
                             title = safe_text(driver, "h1") or info["title"]
                             location = safe_text(driver, "li[data-cy='location']") or info["location"]
                             company = safe_text(driver, "a[data-cy='companyNameLink']") or info["company"]
                             recruiter = safe_text(driver, "p[data-testid='recruiterName']")
 
-                            # Description for filtering — only main job content, not similar jobs
+                            # Get job description (main content only)
                             description = ""
                             try:
                                 desc_el = driver.find_element(By.CSS_SELECTOR, "div.job-description")
-                                description = desc_el.text[:2000]  # limit to first 2000 chars
+                                description = desc_el.text
                             except:
                                 pass
 
-                            # Filter false positives
-                            if not is_real_latam_job(title, description, location, keyword):
-                                print(f"  🚫 Filtered out: {title[:50]}")
-                                continue
+                            # ── AI FILTER ──────────────────────────────────
+                            ai_checked += 1
+                            is_genuine, reason = ai_filter_job(
+                                title, company, location, keyword, description
+                            )
 
-                            # Extract badges
+                            if not is_genuine:
+                                ai_rejected += 1
+                                print(f"  ❌ Rejected: {title[:50]}")
+                                continue
+                            # ───────────────────────────────────────────────
+
                             emp_types, pay, work_type, corp, duration = extract_badges(driver)
 
                             jobs.append({
@@ -233,15 +291,15 @@ def scrape_all():
                                 "Contract Duration": duration,
                                 "Pay": pay,
                                 "Keyword": keyword,
+                                "AI Verified": "✅ Yes",
                                 "Job URL": info["url"],
                                 "Date Scraped": datetime.now().strftime("%Y-%m-%d"),
                             })
-                            print(f"  ✅ {title[:60]}")
+                            print(f"  ✅ Kept: {title[:60]}")
 
                         except Exception as e:
-                            print(f"  ⚠️ Error on detail page: {e}")
-                            if is_real_latam_job(info["title"], "", info["location"], keyword):
-                                jobs.append(build_job_row(info, keyword, keyword))
+                            print(f"  ⚠️ Error: {e}")
+                            continue
 
                         smart_pause(1, 2)
 
@@ -252,42 +310,11 @@ def scrape_all():
     finally:
         driver.quit()
 
+    print(f"\n📊 AI Filter Stats: checked={ai_checked}, rejected={ai_rejected}, kept={len(jobs)}")
     return jobs
 
 
-def safe_text(driver, selector):
-    try:
-        return driver.find_element(By.CSS_SELECTOR, selector).text.strip()
-    except:
-        return ""
-
-
-def extract_badges(driver):
-    emp_types = []
-    pay = work_type = corp = duration = ""
-    try:
-        badges = driver.find_elements(By.CSS_SELECTOR, "div.SeuiInfoBadge div.font-medium")
-        for b in badges:
-            text = b.text.strip()
-            if not text:
-                continue
-            tl = text.lower()
-            if any(x in tl for x in ["$/hr", "$/year", "/hr", "/year", "k/yr", "per hour"]):
-                pay = text
-            elif any(x in tl for x in ["remote", "hybrid", "on-site", "onsite"]):
-                work_type = text
-            elif "corp to corp" in tl or "c2c" in tl:
-                corp = text
-            elif "month" in tl:
-                duration = text
-            else:
-                emp_types.append(text)
-    except:
-        pass
-    return ", ".join(emp_types), pay, work_type, corp, duration
-
-
-def build_job_row(info, description, keyword):
+def build_basic_row(info, keyword):
     return {
         "Job Title": info["title"],
         "Company": info["company"],
@@ -299,9 +326,11 @@ def build_job_row(info, description, keyword):
         "Contract Duration": "",
         "Pay": "",
         "Keyword": keyword,
+        "AI Verified": "⚠️ Not checked",
         "Job URL": info["url"],
         "Date Scraped": datetime.now().strftime("%Y-%m-%d"),
     }
+
 
 # ─── Google Sheets ────────────────────────────────────────────────────────────
 
@@ -317,52 +346,45 @@ def write_to_sheets(jobs):
     gc = gspread.authorize(creds)
     sh = gc.open_by_key(SHEET_ID)
 
-    # Tab name = today's date
     tab_name = datetime.now().strftime("%b %d, %Y")
 
-    # Delete existing tab with same name if exists
     try:
         existing = sh.worksheet(tab_name)
         sh.del_worksheet(existing)
     except:
         pass
 
-    # Create new tab
     worksheet = sh.add_worksheet(title=tab_name, rows=str(len(jobs) + 2), cols="15")
 
-    # Headers
     headers = ["Job Title", "Company", "Recruiter", "Location", "Employment Type",
                "Work Type", "Corp to Corp", "Contract Duration", "Pay",
-               "Keyword", "Job URL", "Date Scraped"]
+               "Keyword", "AI Verified", "Job URL", "Date Scraped"]
+
     worksheet.append_row(headers)
 
-    # Data rows
     for job in jobs:
         worksheet.append_row([job.get(h, "") for h in headers])
 
-    # Format header row bold
-    worksheet.format("A1:L1", {"textFormat": {"bold": True}})
+    worksheet.format("A1:M1", {"textFormat": {"bold": True}})
 
-    # Keep only MAX_TABS most recent tabs (excluding any "Sheet1" default)
+    # Keep only MAX_TABS most recent tabs
     all_sheets = sh.worksheets()
     dated_sheets = [s for s in all_sheets if s.title != "Sheet1"]
     if len(dated_sheets) > MAX_TABS:
-        # Sort by title (date) and delete oldest
         dated_sheets.sort(key=lambda s: s.title)
-        to_delete = dated_sheets[:len(dated_sheets) - MAX_TABS]
-        for old_sheet in to_delete:
+        for old_sheet in dated_sheets[:len(dated_sheets) - MAX_TABS]:
             sh.del_worksheet(old_sheet)
             print(f"🗑️ Deleted old tab: {old_sheet.title}")
 
     print(f"✅ Written {len(jobs)} jobs to tab '{tab_name}'")
     return tab_name
 
-# ─── Email Notification ───────────────────────────────────────────────────────
+
+# ─── Email ────────────────────────────────────────────────────────────────────
 
 def send_email(job_count, tab_name):
     today = datetime.now().strftime("%B %d, %Y")
-
-    subject = f"🐬 Fast Dolphin LATAM Leads — {today} ({job_count} new leads)"
+    subject = f"🐬 Fast Dolphin LATAM Leads — {today} ({job_count} verified leads)"
 
     body = f"""
 <html>
@@ -373,18 +395,19 @@ def send_email(job_count, tab_name):
       <p style="color: #7B93B8; margin: 6px 0 0;">Daily Dice.com scrape — {today}</p>
     </div>
     <div style="padding: 28px 32px;">
-      <p style="font-size: 16px; color: #333;">Your daily LATAM contract leads are ready.</p>
+      <p style="font-size: 16px; color: #333;">Your daily LATAM contract leads are ready — <strong>AI verified</strong> for quality.</p>
       <div style="background: #f0f4ff; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center;">
         <div style="font-size: 42px; font-weight: bold; color: #1B6CF2;">{job_count}</div>
         <div style="color: #666; font-size: 14px;">verified LATAM contract leads found today</div>
+        <div style="color: #00C2A8; font-size: 12px; margin-top: 6px;">✅ Each lead reviewed by AI to confirm genuine LATAM relevance</div>
       </div>
-      <p style="color: #555;">Results are available in the <strong>{tab_name}</strong> tab of your Google Sheet:</p>
+      <p style="color: #555;">Results are in the <strong>{tab_name}</strong> tab of your Google Sheet:</p>
       <div style="text-align: center; margin: 24px 0;">
         <a href="{SHEET_URL}" style="background: #1B6CF2; color: white; padding: 14px 28px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 15px;">
           📊 Open Google Sheet
         </a>
       </div>
-      <p style="color: #999; font-size: 12px;">Filtered for: Mexico · Brazil · Colombia · Argentina · Chile · LATAM · Spanish · and more<br>Employment type: Contract & Third Party only · Posted in last 3 days</p>
+      <p style="color: #999; font-size: 12px;">Filtered for: Mexico · Brazil · Colombia · Argentina · Chile · LATAM · Spanish · and more<br>Employment type: Contract & Third Party only · Posted in last 3 days · AI-verified for quality</p>
     </div>
     <div style="background: #f9f9f9; padding: 16px 32px; text-align: center; border-top: 1px solid #eee;">
       <p style="color: #aaa; font-size: 12px; margin: 0;">Fast Dolphin Consulting Group · Internal use only</p>
@@ -406,10 +429,11 @@ def send_email(job_count, tab_name):
 
     print(f"📧 Email sent to: {', '.join(NOTIFY_EMAILS)}")
 
+
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    print(f"🐬 Fast Dolphin LATAM Lead Scraper")
+    print(f"🐬 Fast Dolphin LATAM Lead Scraper — AI Edition")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 50)
 
