@@ -60,38 +60,40 @@ LATAM_CITIES = [
 ]
 
 def is_real_latam_job(title, description, location, keyword):
-    """Filter out false positives like 'New Mexico' or office mentions."""
+    """Filter out only clear false positives. Trust Dice's search otherwise."""
     import re
 
     text = f"{title} {description} {location}".lower()
     latam_kw = keyword.lower()
 
-    # Hard reject: New Mexico without real LATAM signals
-    if "new mexico" in text:
-        has_latam_city = any(city in text for city in LATAM_CITIES)
-        if not has_latam_city:
+    # Hard reject: "New Mexico" state — not a LATAM job
+    if latam_kw == "mexico":
+        if re.search(r'\bnew\s+mexico\b', text, re.IGNORECASE):
+            # Only reject if no real Mexico signals present
+            if not any(city in text for city in LATAM_CITIES):
+                if not re.search(r'\b(mexico\s+city|guadalajara|monterrey|cdmx)\b', text, re.IGNORECASE):
+                    return False
+
+    # Hard reject: keyword only appears inside "perl" for "peru"
+    if latam_kw == "peru":
+        if re.search(r'\bperl\b', text, re.IGNORECASE) and not re.search(r'\bperu\b', text, re.IGNORECASE):
             return False
 
-    # Use word boundary matching to avoid substring false positives
-    # e.g. "peru" should NOT match inside "perl", "peruse", "imperuse"
-    kw_pattern = re.compile(r'\b' + re.escape(latam_kw) + r'\b', re.IGNORECASE)
+    # Hard reject: pure office-mention boilerplate with no other LATAM signals
+    office_boilerplate = [
+        r'offices?\s+in[^.]*?' + re.escape(latam_kw),
+        r'internationally\s+in[^.]*?' + re.escape(latam_kw),
+        r'offices?\s+including[^.]*?' + re.escape(latam_kw),
+    ]
+    for pattern in office_boilerplate:
+        if re.search(pattern, text, re.IGNORECASE):
+            # Only reject if keyword not in title/location AND no LATAM city found
+            if latam_kw not in title.lower() and latam_kw not in location.lower():
+                if not any(city in text for city in LATAM_CITIES):
+                    if not re.search(r'\b(spanish|bilingual|latam|latin america)\b', text, re.IGNORECASE):
+                        return False
 
-    # Check if keyword actually appears as a whole word anywhere in title/description/location
-    if not kw_pattern.search(text):
-        return False
-
-    # Hard reject: keyword appears only in office/location boilerplate
-    if latam_kw in ["mexico", "brazil", "brasil", "colombia", "argentina",
-                    "chile", "bolivia", "peru", "costa rica", "panama", "ecuador"]:
-        for pattern in OFFICE_PATTERNS:
-            if pattern in text and kw_pattern.search(text):
-                # Check if keyword also appears in title or location directly
-                if not kw_pattern.search(title.lower()) and not kw_pattern.search(location.lower()):
-                    # Check for LATAM city names as positive signal
-                    if not any(city in text for city in LATAM_CITIES):
-                        if "spanish" not in text and "bilingual" not in text:
-                            return False
-
+    # Otherwise trust Dice's search result
     return True
 
 # ─── Selenium Setup ───────────────────────────────────────────────────────────
