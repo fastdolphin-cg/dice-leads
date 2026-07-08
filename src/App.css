@@ -210,7 +210,7 @@ body {
 
 /* â”€â”€â”€ Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .stats-row {
-  max-width: 1400px; margin: 20px auto 0;
+  max-width: 1800px; margin: 20px auto 0;
   padding: 0 28px;
   display: flex; gap: 16px; flex-wrap: wrap;
 }
@@ -227,7 +227,7 @@ body {
 
 /* â”€â”€â”€ Main Content â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .main-content {
-  max-width: 1400px; width: 100%;
+  max-width: 1800px; width: 100%;
   margin: 20px auto; padding: 0 28px;
 }
 
@@ -301,7 +301,8 @@ body {
 }
 .export-btn:hover { background: rgba(255,255,255,0.05); border-color: var(--muted); }
 .table-wrap { overflow-x: auto; }
-.leads-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; table-layout: fixed; }
+.table-wrap { overflow-x: auto; width: 100%; }
+.leads-table { width: 100%; min-width: 1600px; border-collapse: collapse; font-size: 0.84rem; table-layout: fixed; }
 .leads-table thead tr { background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border); }
 .leads-table th {
   padding: 11px 10px; text-align: left;
