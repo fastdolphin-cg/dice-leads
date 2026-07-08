@@ -441,9 +441,12 @@ def send_email(job_count, tab_name):
         <div style="color: #00C2A8; font-size: 12px; margin-top: 6px;">Each lead reviewed by AI to confirm genuine LATAM relevance</div>
       </div>
       <p style="color: #555;">Results are in the <strong>{tab_name}</strong> tab of your Google Sheet:</p>
-      <div style="text-align: center; margin: 24px 0;">
-        <a href="{SHEET_URL}" style="background: #1B6CF2; color: white; padding: 14px 28px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 15px;">
-          Open Google Sheet
+      <div style="text-align: center; margin: 24px 0; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+        <a href="{SHEET_URL}" style="background: #1B6CF2; color: white; padding: 14px 28px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 15px; display: inline-block;">
+          📊 Open Google Sheet
+        </a>
+        <a href="https://fastdolphin-cg.github.io/dice-leads" style="background: #0A1628; color: white; padding: 14px 28px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 15px; display: inline-block; border: 1px solid #1B6CF2;">
+          🐬 Open Lead Finder App
         </a>
       </div>
       <p style="color: #999; font-size: 12px;">Filtered for: Mexico · Brazil · Colombia · Argentina · Chile · LATAM · Spanish · and more<br>Employment type: Contract and Third Party only · Posted in last 3 days · AI-verified for quality</p>
