@@ -324,6 +324,9 @@ export default function App() {
             <button className={`nav-btn ${activeTab === 'run' ? 'active' : ''}`} onClick={() => setActiveTab('run')}>
               <Play size={15} /> Run Scraper
             </button>
+            <button className={`nav-btn ${activeTab === 'prompt' ? 'active' : ''}`} onClick={() => setActiveTab('prompt')}>
+              <Filter size={15} /> AI Prompt
+            </button>
           </nav>
           <div className="header-right">
             <span className="header-user">{user}</span>
@@ -446,6 +449,80 @@ export default function App() {
                 {!runStatus && (
                   <p className="run-note">Clicking "Run Now" opens GitHub Actions in a new tab. Click "Run workflow" to start the scraper. Results appear here after ~15 minutes.</p>
                 )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Prompt */}
+      {activeTab === 'prompt' && (
+        <div className="tab-content">
+          <div className="tab-hero">
+            <div className="tab-hero-text">
+              <div className="tab-eyebrow">Read only · For reference</div>
+              <h2 className="tab-title">AI Filter Prompt</h2>
+              <p className="tab-sub">This is the exact prompt sent to Claude Haiku to evaluate each job posting.</p>
+            </div>
+          </div>
+          <div className="prompt-section">
+            <div className="prompt-card">
+              <div className="prompt-header">
+                <div className="prompt-header-text">
+                  <h3>LATAM Job Relevance Evaluator</h3>
+                  <p>Model: Claude Haiku 4.5 · Called once per job posting · ~$0.001 per call</p>
+                </div>
+                <span className="prompt-badge">claude-haiku-4-5</span>
+              </div>
+              <div className="prompt-body">{`You are a strict recruiting analyst. Your job is to decide if a job posting has a GENUINE Latin America connection meaning the actual job requirements, candidate location, or language skills involve Latin America.
+
+STEP 1: Read the ENTIRE job description carefully.
+
+STEP 2: Understand the nature of the job description and decide if it is related with Latin America or Spanish/Portuguese language. The following is a partial list of keywords: Latin America, Mexico, Brazil, Colombia, Argentina, Chile, Peru, Ecuador, Costa Rica, Panama, Bolivia, LATAM, Maquiladora, Spanish, or Portuguese. If the job mentions any other Latin American country not listed here (such as Paraguay, Uruguay, Venezuela, Honduras, Guatemala, Nicaragua, Dominican Republic, etc.), please include it, as long as it is under the context explained in this prompt.
+
+STEP 3: For EACH mention, determine its context.
+
+AUTOMATICALLY REJECT - answer NO - if Latin America, Spanish, Portuguese, or any related keyword ONLY appears in:
+- Email signature or footer listing office locations such as "USA | CANADA | Mexico | INDIA" or "offices in New York, Mexico, India"
+- Company boilerplate like "we have offices in..." or "presence in..." or "locations in..." or "internationally in..."
+- Equal opportunity employment statements
+- The US state of New Mexico - not the country Mexico
+- The word "Perl" which is a programming language - this is NOT "Peru"
+- A recruiter contact information or company address
+- Phrases describing where the COMPANY operates, NOT where the CANDIDATE works
+
+ACCEPT - answer YES - ONLY if Latin America, Spanish, Portuguese, or any related keyword appears in:
+- The actual job requirements such as "must be bilingual" or "Spanish required" or "based in Mexico City"
+- The candidate work location such as "position located in Bogota" or "remote from LATAM"
+- Required skills or experience such as "LATAM market experience" or "serve Latin American clients"
+- Language requirements such as "fluent Spanish" or "Portuguese required" or "bilingual English/Spanish"
+- The role description itself mentioning LATAM work or clients
+- Any Latin American country even if not in the keyword list above, as long as it is in the context of the job requirement and not just a company office mention
+
+CONCRETE EXAMPLES:
+- "USA | CANADA | Mexico | INDIA" in a footer = NO
+- "Support Benefits implementation within the USA" with Mexico only in footer = NO
+- "offices in Mexico City and India" = NO
+- "PruTech has nearshore offices in Mexico City" but job is in Brooklyn NY = NO
+- "Must be fluent in Spanish" = YES
+- "Position based in Guadalajara" = YES
+- "Serve LATAM clients" = YES
+- "Bilingual English/Spanish required" = YES
+- "Nearshore delivery from Mexico" = YES
+- "Candidate must have experience working with teams in Paraguay" = YES
+
+Job Title: {title}
+Company: {company}
+Location: {location}
+Keyword that matched: {keyword}
+
+Job Description:
+{description}
+
+Think step by step. Understand the nature of the job. Find every relevant mention. Determine its context. Then decide.
+
+Respond with ONLY a JSON object in this exact format with no other text:
+{"decision": "YES" or "NO", "reason": "one sentence explaining the specific mention and why it does or does not qualify"}`}
               </div>
             </div>
           </div>
