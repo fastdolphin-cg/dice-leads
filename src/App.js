@@ -1,66 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Search, LogOut, Download, RefreshCw, ChevronUp, ChevronDown, ExternalLink, Filter, X, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Search, LogOut, Download, RefreshCw, ChevronUp, ChevronDown, ExternalLink, Filter, X, AlertCircle, CheckCircle2, Loader2, Calendar, Clock, BarChart2, Play } from 'lucide-react';
 import './App.css';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const ALLOWED_DOMAIN = 'fastdolphin.com';
-
-const KEYWORDS = [
-  'mexico', 'spanish', 'brazil', 'argentina', 'colombia',
-  'ecuador', 'costa rica', 'panama', 'portuguese', 'latam',
-  'latin america', 'Brasil', 'maquiladora', 'chile', 'bolivia', 'peru'
-];
-
-// Phrases that indicate a location is just an office mention, not the job location
-const OFFICE_MENTION_PATTERNS = [
-  /offices?\s+in\s+[^.]*?(mexico|brazil|brasil|colombia|argentina|chile|latin america|latam|bolivia|peru|costa rica|panama|ecuador)/i,
-  /locations?\s+in\s+[^.]*?(mexico|brazil|brasil|colombia|argentina|chile|latin america|latam|bolivia|peru|costa rica|panama|ecuador)/i,
-  /offices?\s+including[^.]*?(mexico|brazil|brasil|colombia|argentina|chile|latin america|latam|bolivia|peru|costa rica|panama|ecuador)/i,
-  /internationally\s+in\s+[^.]*?(mexico|brazil|brasil|colombia|argentina|chile|latin america|latam|bolivia|peru|costa rica|panama|ecuador)/i,
-  /presence\s+in\s+[^.]*?(mexico|brazil|brasil|colombia|argentina|chile|latin america|latam|bolivia|peru|costa rica|panama|ecuador)/i,
-  /headquartered[^.]*?(mexico|brazil|brasil|colombia|argentina|chile|latin america|latam|bolivia|peru|costa rica|panama|ecuador)/i,
-  /new mexico/i,
-];
-
-// These indicate the job IS actually in LATAM
-const LATAM_JOB_PATTERNS = [
-  /location\s*:\s*[^.\n]*(mexico|brazil|brasil|colombia|argentina|chile|latam|latin america|bolivia|peru|costa rica|panama|ecuador)/i,
-  /position\s+is\s+in\s+[^.]*?(mexico|brazil|brasil|colombia|argentina|chile|latam|bolivia|peru|costa rica|panama|ecuador)/i,
-  /role\s+is\s+in\s+[^.]*?(mexico|brazil|brasil|colombia|argentina|chile|latam|bolivia|peru|costa rica|panama|ecuador)/i,
-  /based\s+in\s+[^.]*?(mexico|brazil|brasil|colombia|argentina|chile|latam|bolivia|peru|costa rica|panama|ecuador)/i,
-  /\b(guadalajara|monterrey|mexico city|ciudad de mexico|cdmx|bogota|medellin|buenos aires|santiago|lima|san jose|panama city|quito|la paz|sao paulo|rio de janeiro|brasilia)\b/i,
-  /spanish[\s-]speaking/i,
-  /bilingual.*spanish/i,
-  /fluent.*spanish/i,
-  /spanish.*required/i,
-  /portuguese[\s-]speaking/i,
-  /latam\s+(region|market|team|operations)/i,
-  /latin\s+america\s+(region|market|team|operations|experience)/i,
-];
-
-function isRealLatamJob(title, description, location) {
-  const fullText = `${title} ${description} ${location}`.toLowerCase();
-
-  // Immediately reject "New Mexico" unless paired with real LATAM signals
-  if (/new\s+mexico/i.test(fullText) && !/\b(mexico city|guadalajara|monterrey|cdmx|maquiladora)\b/i.test(fullText)) {
-    return false;
-  }
-
-  // Check if any LATAM job pattern matches (strong positive signal)
-  for (const pattern of LATAM_JOB_PATTERNS) {
-    if (pattern.test(fullText)) return true;
-  }
-
-  // Check if keyword mention is just an office mention (negative signal)
-  for (const pattern of OFFICE_MENTION_PATTERNS) {
-    if (pattern.test(fullText)) return false;
-  }
-
-  // Default: if it has a LATAM keyword in title or location, keep it
-  const titleLoc = `${title} ${location}`.toLowerCase();
-  const latamWords = ['mexico', 'brazil', 'brasil', 'colombia', 'argentina', 'chile', 'latam', 'latin america', 'bolivia', 'peru', 'costa rica', 'panama', 'ecuador', 'maquiladora'];
-  return latamWords.some(w => titleLoc.includes(w));
-}
+const SHEET_ID = '14Gjeh1TiJTIq0IhhAA0cKumraUy1Q0d99hmbhI1AtV8';
+const APP_URL = 'https://fastdolphin-cg.github.io/dice-leads';
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 function isValidEmail(e) { return e.toLowerCase().endsWith(`@${ALLOWED_DOMAIN}`); }
@@ -68,115 +13,63 @@ function saveSession(e) { sessionStorage.setItem('fd_user', e); }
 function getSession() { return sessionStorage.getItem('fd_user'); }
 function clearSession() { sessionStorage.removeItem('fd_user'); }
 
-// ─── Scraping ─────────────────────────────────────────────────────────────────
-async function fetchHtml(url) {
-  const proxies = [
-    `https://corsproxy.io/?${encodeURIComponent(url)}`,
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-    `https://thingproxy.freeboard.io/fetch/${url}`,
-  ];
-  for (const proxy of proxies) {
-    try {
-      const res = await fetch(proxy, { headers: { 'x-requested-with': 'XMLHttpRequest' } });
-      if (res.ok) {
-        const text = await res.text();
-        if (text && text.length > 500) return text;
-      }
-    } catch (_) { continue; }
-  }
-  throw new Error('All proxies failed');
+// ─── Google Sheets fetcher ────────────────────────────────────────────────────
+async function fetchSheetTabs() {
+  // Fetch the sheet metadata to get all tab names
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`;
+  const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(
+    `https://spreadsheets.google.com/feeds/worksheets/${SHEET_ID}/public/basic?alt=json`
+  )}`);
+  if (!res.ok) throw new Error('Could not fetch sheet tabs');
+  const data = await res.json();
+  const entries = data.feed?.entry || [];
+  return entries.map(e => ({
+    title: e.title.$t,
+    id: e.id.$t.split('/').pop(),
+  })).filter(t => t.title !== 'Sheet1');
 }
 
-function parseJobsFromHtml(html, keyword) {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
-  const jobs = [];
-
-  // Try __NEXT_DATA__ JSON first
-  const nextDataScript = doc.querySelector('#__NEXT_DATA__');
-  if (nextDataScript) {
-    try {
-      const nextData = JSON.parse(nextDataScript.textContent);
-      const props = nextData?.props?.pageProps;
-      const jobList =
-        props?.initialState?.jobs?.jobs ||
-        props?.jobs ||
-        props?.searchResults?.jobs ||
-        [];
-
-      if (jobList.length > 0) {
-        for (const job of jobList) {
-          const empType = Array.isArray(job.employmentType)
-            ? job.employmentType.join(', ')
-            : (job.employmentType || '');
-
-          const loc = job.jobLocation || job.location || {};
-          const location = typeof loc === 'string' ? loc
-            : [loc.city, loc.state, loc.country].filter(Boolean).join(', ');
-
-          const description = job.jobDescription
-            ? job.jobDescription.replace(/<[^>]+>/g, ' ').slice(0, 1000)
-            : '';
-
-          if (!isRealLatamJob(job.title || '', description, location)) continue;
-
-          jobs.push({
-            id: job.id || Math.random().toString(36).slice(2),
-            title: job.title || '',
-            company: job.hiringOrganization?.name || job.advertiserName || '',
-            location,
-            employmentType: empType,
-            workType: job.workFromHomeAvailability || '',
-            pay: job.salary || '',
-            postedDate: job.datePosted || job.date || '',
-            url: `https://www.dice.com/job-detail/${job.id}`,
-            keyword,
-          });
-        }
-        return jobs;
-      }
-    } catch (_) {}
-  }
-
-  // Fallback: parse HTML cards
-  const cards = doc.querySelectorAll('div[data-cy="search-result-item"], div[role="listitem"], [data-testid="job-card"]');
-  for (const card of cards) {
-    const titleEl = card.querySelector('a[data-testid="job-search-job-detail-link"], h5 a, .job-title a');
-    const companyEl = card.querySelector('p.mb-0, [data-cy="company-name"]');
-    const locEl = card.querySelector('[data-cy="location"], li[data-cy="location"]');
-    const linkEl = card.querySelector('a[data-testid="job-search-job-card-link"], a[href*="job-detail"]');
-    const empTypeEl = card.querySelector('[data-cy="employment-type"], [data-testid="employment-type"]');
-    const workTypeEl = card.querySelector('[data-cy="work-type"], [data-testid="work-type"]');
-    const payEl = card.querySelector('[data-cy="pay"], [data-testid="pay"]');
-    const dateEl = card.querySelector('[data-cy="posted-date"], time, [data-testid="posted-date"]');
-
-    const title = titleEl?.textContent?.trim() || '';
-    const company = companyEl?.textContent?.trim() || '';
-    const location = locEl?.textContent?.trim() || '';
-    const href = linkEl?.getAttribute('href') || '';
-    const url = href.startsWith('http') ? href : `https://www.dice.com${href}`;
-
-    if (!title) continue;
-    if (!isRealLatamJob(title, '', location)) continue;
-
-    jobs.push({
-      id: url.split('/').pop() || Math.random().toString(36).slice(2),
-      title, company, location,
-      employmentType: empTypeEl?.textContent?.trim() || '',
-      workType: workTypeEl?.textContent?.trim() || '',
-      pay: payEl?.textContent?.trim() || '',
-      postedDate: dateEl?.getAttribute('datetime') || dateEl?.textContent?.trim() || '',
-      url, keyword,
-    });
-  }
-  return jobs;
+async function fetchTabData(tabName) {
+  // Use the published CSV URL with gid lookup
+  const encodedTab = encodeURIComponent(tabName);
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodedTab}`;
+  const proxied = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+  const res = await fetch(proxied);
+  if (!res.ok) throw new Error(`Could not fetch tab: ${tabName}`);
+  const csv = await res.text();
+  return parseCSV(csv);
 }
 
-async function scrapeKeyword(keyword, page, onProgress) {
-  const url = `https://www.dice.com/jobs?filters.postedDate=THREE&filters.employmentType=CONTRACTS%7CTHIRD_PARTY&q=${encodeURIComponent(keyword)}&page=${page}`;
-  onProgress(`Searching "${keyword}" (page ${page})…`);
-  const html = await fetchHtml(url);
-  return parseJobsFromHtml(html, keyword);
+function parseCSV(csv) {
+  const lines = csv.split('\n').filter(l => l.trim());
+  if (lines.length < 2) return [];
+  
+  const parseRow = (line) => {
+    const result = [];
+    let inQuotes = false;
+    let current = '';
+    for (let i = 0; i < line.length; i++) {
+      if (line[i] === '"') {
+        if (inQuotes && line[i+1] === '"') { current += '"'; i++; }
+        else inQuotes = !inQuotes;
+      } else if (line[i] === ',' && !inQuotes) {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += line[i];
+      }
+    }
+    result.push(current.trim());
+    return result;
+  };
+
+  const headers = parseRow(lines[0]);
+  return lines.slice(1).map(line => {
+    const values = parseRow(line);
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = values[i] || ''; });
+    return obj;
+  }).filter(row => row['Job Title']);
 }
 
 // ─── Login ────────────────────────────────────────────────────────────────────
@@ -199,11 +92,9 @@ function LoginScreen({ onLogin }) {
     <div className="login-bg">
       <div className="login-glow" />
       <div className={`login-card ${shaking ? 'shake' : ''}`}>
-        <div className="login-logo">
-          <FDLogo className="login-fd-logo" />
-        </div>
+        <img src={`${process.env.PUBLIC_URL}/fd-logo.png`} alt="Fast Dolphin" className="login-logo-img" />
         <h1 className="login-title">Lead Finder</h1>
-        <p className="login-sub">Sign in with your Fast Dolphin email to access LATAM contract leads from Dice.</p>
+        <p className="login-sub">Sign in with your Fast Dolphin email to access LATAM contract leads.</p>
         <form onSubmit={handleSubmit} className="login-form">
           <input type="email" placeholder="you@fastdolphin.com" value={email}
             onChange={e => { setEmail(e.target.value); setError(''); }}
@@ -216,68 +107,46 @@ function LoginScreen({ onLogin }) {
   );
 }
 
-// ─── Fast Dolphin Logo ────────────────────────────────────────────────────────
-function FDLogo({ className = '', height = 36 }) {
-  return (
-    <img
-      src={`${process.env.PUBLIC_URL}/fd-logo.png`}
-      alt="Fast Dolphin"
-      height={height}
-      className={className}
-      style={{ objectFit: 'contain' }}
-    />
-  );
-}
-
-// ─── Status Bar ───────────────────────────────────────────────────────────────
-function StatusBar({ status, progress }) {
-  if (!status) return null;
-  return (
-    <div className={`status-bar ${status}`}>
-      {status === 'running' && <Loader2 size={14} className="spin" />}
-      {status === 'done' && <CheckCircle2 size={14} />}
-      {status === 'error' && <AlertCircle size={14} />}
-      <span className="status-text">{progress}</span>
-    </div>
-  );
-}
-
 // ─── Table ────────────────────────────────────────────────────────────────────
 const COLUMNS = [
-  { key: 'title',          label: 'Job Title',       sortable: true  },
-  { key: 'company',        label: 'Company',         sortable: true  },
-  { key: 'location',       label: 'Location',        sortable: true  },
-  { key: 'employmentType', label: 'Employment Type', sortable: false },
-  { key: 'workType',       label: 'Work Type',       sortable: false },
-  { key: 'pay',            label: 'Pay',             sortable: false },
-  { key: 'postedDate',     label: 'Posted',          sortable: true  },
-  { key: 'keyword',        label: 'Keyword',         sortable: true  },
-  { key: 'url',            label: 'Link',            sortable: false },
+  { key: 'Job Title',       label: 'Job Title',         sortable: true  },
+  { key: 'Company',         label: 'Company',           sortable: true  },
+  { key: 'Location',        label: 'Location',          sortable: true  },
+  { key: 'Employment Type', label: 'Employment Type',   sortable: false },
+  { key: 'Work Type',       label: 'Work Type',         sortable: false },
+  { key: 'Corp to Corp',    label: 'Corp to Corp',      sortable: false },
+  { key: 'Pay',             label: 'Pay',               sortable: false },
+  { key: 'Contract Duration', label: 'Duration',        sortable: false },
+  { key: 'Keyword',         label: 'Keyword',           sortable: true  },
+  { key: 'AI Reason',       label: 'Why LATAM',         sortable: false },
+  { key: 'Job URL',         label: 'Link',              sortable: false },
 ];
 
 function JobTable({ jobs }) {
   const [search, setSearch]     = useState('');
-  const [sortCol, setSortCol]   = useState('postedDate');
-  const [sortDir, setSortDir]   = useState('desc');
+  const [sortCol, setSortCol]   = useState('');
+  const [sortDir, setSortDir]   = useState('asc');
   const [filterKw, setFilterKw] = useState('');
 
-  const keywords = useMemo(() => [...new Set(jobs.map(j => j.keyword))].sort(), [jobs]);
+  const keywords = useMemo(() => [...new Set(jobs.map(j => j['Keyword']))].filter(Boolean).sort(), [jobs]);
 
   const filtered = useMemo(() => {
     let rows = [...jobs];
     if (search) {
       const q = search.toLowerCase();
       rows = rows.filter(j =>
-        j.title.toLowerCase().includes(q) ||
-        j.company.toLowerCase().includes(q) ||
-        j.location.toLowerCase().includes(q)
+        (j['Job Title'] || '').toLowerCase().includes(q) ||
+        (j['Company'] || '').toLowerCase().includes(q) ||
+        (j['Location'] || '').toLowerCase().includes(q)
       );
     }
-    if (filterKw) rows = rows.filter(j => j.keyword === filterKw);
-    rows.sort((a, b) => {
-      const av = a[sortCol] || '', bv = b[sortCol] || '';
-      return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
-    });
+    if (filterKw) rows = rows.filter(j => j['Keyword'] === filterKw);
+    if (sortCol) {
+      rows.sort((a, b) => {
+        const av = a[sortCol] || '', bv = b[sortCol] || '';
+        return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+      });
+    }
     return rows;
   }, [jobs, search, sortCol, sortDir, filterKw]);
 
@@ -339,20 +208,24 @@ function JobTable({ jobs }) {
           <tbody>
             {filtered.length === 0
               ? <tr><td colSpan={COLUMNS.length} className="empty-row">No leads match your filters.</td></tr>
-              : filtered.map(job => (
-                <tr key={job.id} className="job-row">
-                  <td className="col-title">{job.title}</td>
-                  <td className="col-company">{job.company}</td>
-                  <td className="col-location">{job.location}</td>
-                  <td><span className="tag tag-blue">{job.employmentType || '—'}</span></td>
-                  <td>{job.workType || '—'}</td>
-                  <td className="col-pay">{job.pay || '—'}</td>
-                  <td className="col-date">{job.postedDate ? new Date(job.postedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</td>
-                  <td><span className="tag tag-gold">{job.keyword}</span></td>
+              : filtered.map((job, i) => (
+                <tr key={i} className="job-row">
+                  <td className="col-title">{job['Job Title']}</td>
+                  <td className="col-company">{job['Company']}</td>
+                  <td className="col-location">{job['Location']}</td>
+                  <td className="col-emptype"><span className="tag tag-blue">{job['Employment Type'] || '—'}</span></td>
+                  <td>{job['Work Type'] || '—'}</td>
+                  <td>{job['Corp to Corp'] || '—'}</td>
+                  <td className="col-pay">{job['Pay'] || '—'}</td>
+                  <td>{job['Contract Duration'] || '—'}</td>
+                  <td><span className="tag tag-gold">{job['Keyword']}</span></td>
+                  <td className="col-reason">{job['AI Reason'] || '—'}</td>
                   <td>
-                    <a href={job.url} target="_blank" rel="noopener noreferrer" className="job-link">
-                      View <ExternalLink size={11} />
-                    </a>
+                    {job['Job URL'] ? (
+                      <a href={job['Job URL']} target="_blank" rel="noopener noreferrer" className="job-link">
+                        View <ExternalLink size={11} />
+                      </a>
+                    ) : '—'}
                   </td>
                 </tr>
               ))
@@ -364,67 +237,96 @@ function JobTable({ jobs }) {
   );
 }
 
+// ─── Stats Bar ────────────────────────────────────────────────────────────────
+function StatsBar({ jobs }) {
+  if (!jobs.length) return null;
+  return (
+    <div className="stats-row">
+      <div className="stat-card">
+        <span className="stat-num">{jobs.length}</span>
+        <span className="stat-label">Total leads</span>
+      </div>
+      <div className="stat-card">
+        <span className="stat-num">{new Set(jobs.map(j => j['Company'])).size}</span>
+        <span className="stat-label">Companies</span>
+      </div>
+      <div className="stat-card">
+        <span className="stat-num">{new Set(jobs.map(j => j['Keyword'])).size}</span>
+        <span className="stat-label">Keywords matched</span>
+      </div>
+      <div className="stat-card">
+        <span className="stat-num">{jobs.filter(j => (j['Work Type'] || '').toLowerCase().includes('remote')).length}</span>
+        <span className="stat-label">Remote roles</span>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
-  const [user, setUser]           = useState(getSession());
-  const [scrapeStatus, setStatus] = useState(null);
-  const [progress, setProgress]   = useState('');
-  const [jobs, setJobs]           = useState([]);
-  const [lastRun, setLastRun]     = useState(null);
+  const [user, setUser]             = useState(getSession());
+  const [activeTab, setActiveTab]   = useState('latest');
+  const [tabs, setTabs]             = useState([]);
+  const [selectedTab, setSelectedTab] = useState('');
+  const [jobs, setJobs]             = useState([]);
+  const [loading, setLoading]       = useState(false);
+  const [loadingTabs, setLoadingTabs] = useState(false);
+  const [error, setError]           = useState('');
+  const [runStatus, setRunStatus]   = useState(null); // null | 'running' | 'done' | 'error'
+  const [runMsg, setRunMsg]         = useState('');
 
+  // Load available tabs on mount
   useEffect(() => {
+    if (!user) return;
+    loadTabs();
+  }, [user]);
+
+  async function loadTabs() {
+    setLoadingTabs(true);
     try {
-      const saved = localStorage.getItem('fd_jobs');
-      const savedTime = localStorage.getItem('fd_last_run');
-      if (saved) setJobs(JSON.parse(saved));
-      if (savedTime) setLastRun(new Date(savedTime));
-    } catch (_) {}
-  }, []);
-
-  async function runScrape() {
-    setStatus('running');
-    setJobs([]);
-    const found = [];
-    const seen = new Set();
-    let errors = 0;
-
-    for (let ki = 0; ki < KEYWORDS.length; ki++) {
-      const kw = KEYWORDS[ki];
-      for (let page = 1; page <= 3; page++) {
-        try {
-          setProgress(`Searching "${kw}" (${ki + 1}/${KEYWORDS.length})…`);
-          const results = await scrapeKeyword(kw, page, setProgress);
-          if (!results.length) break;
-          let newOnPage = 0;
-          for (const job of results) {
-            if (seen.has(job.id)) continue;
-            seen.add(job.id);
-            found.push(job);
-            newOnPage++;
-          }
-          if (newOnPage === 0) break;
-        } catch (err) {
-          console.warn(`Error on "${kw}" page ${page}:`, err.message);
-          errors++;
-          break;
-        }
-        await new Promise(r => setTimeout(r, 600));
+      const sheetTabs = await fetchSheetTabs();
+      // Sort newest first
+      const sorted = sheetTabs.sort((a, b) => {
+        const da = new Date(a.title), db = new Date(b.title);
+        return db - da;
+      });
+      setTabs(sorted);
+      if (sorted.length > 0) {
+        setSelectedTab(sorted[0].title);
+        loadTabData(sorted[0].title);
       }
+    } catch (e) {
+      setError('Could not load sheet tabs. ' + e.message);
+    } finally {
+      setLoadingTabs(false);
     }
+  }
 
-    const now = new Date();
-    setJobs(found);
-    setLastRun(now);
-    localStorage.setItem('fd_jobs', JSON.stringify(found));
-    localStorage.setItem('fd_last_run', now.toISOString());
-
-    if (found.length > 0) {
-      setStatus('done');
-      setProgress(`Found ${found.length} verified LATAM leads across ${KEYWORDS.length} keywords.`);
-    } else {
-      setStatus('error');
-      setProgress(`No results returned. Dice may be blocking the proxy. Try again in a few minutes.`);
+  async function loadTabData(tabName) {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await fetchTabData(tabName);
+      setJobs(data);
+      setSelectedTab(tabName);
+    } catch (e) {
+      setError('Could not load data for ' + tabName + '. ' + e.message);
+      setJobs([]);
+    } finally {
+      setLoading(false);
     }
+  }
+
+  async function triggerScraper() {
+    setRunStatus('running');
+    setRunMsg('Triggering scraper… this will take 10-15 minutes to complete.');
+    // We can't trigger GitHub Actions directly from a static site without a token
+    // So we'll redirect the user to GitHub Actions
+    setTimeout(() => {
+      window.open('https://github.com/fastdolphin-cg/dice-leads/actions/workflows/scraper.yml', '_blank');
+      setRunStatus('done');
+      setRunMsg('GitHub Actions opened in a new tab. Click "Run workflow" to start the scraper. Results will appear here after ~15 minutes.');
+    }, 500);
   }
 
   if (!user) return <LoginScreen onLogin={email => setUser(email)} />;
@@ -434,7 +336,18 @@ export default function App() {
       {/* Header */}
       <header className="app-header">
         <div className="header-inner">
-          <FDLogo height={38} />
+          <img src={`${process.env.PUBLIC_URL}/fd-logo.png`} alt="Fast Dolphin" className="header-logo" />
+          <nav className="header-nav">
+            <button className={`nav-btn ${activeTab === 'latest' ? 'active' : ''}`} onClick={() => setActiveTab('latest')}>
+              <BarChart2 size={15} /> Latest Leads
+            </button>
+            <button className={`nav-btn ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}>
+              <Calendar size={15} /> History
+            </button>
+            <button className={`nav-btn ${activeTab === 'run' ? 'active' : ''}`} onClick={() => setActiveTab('run')}>
+              <Play size={15} /> Run Scraper
+            </button>
+          </nav>
           <div className="header-right">
             <span className="header-user">{user}</span>
             <button className="logout-btn" onClick={() => { clearSession(); setUser(null); }} title="Sign out">
@@ -444,61 +357,137 @@ export default function App() {
         </div>
       </header>
 
-      {/* Hero */}
-      <section className="hero">
-        <div className="hero-inner">
-          <div className="hero-text">
-            <div className="hero-eyebrow">Dice.com · Last 3 days · Contract & Third Party</div>
-            <h2 className="hero-title">LATAM Lead Finder</h2>
-            <p className="hero-sub">
-              Verified contract opportunities matching Latin America keywords.
-              {lastRun && <span className="last-run"> Last pull: {lastRun.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>}
-            </p>
+      {/* Latest Leads Tab */}
+      {activeTab === 'latest' && (
+        <div className="tab-content">
+          <div className="tab-hero">
+            <div className="tab-hero-text">
+              <div className="tab-eyebrow">Dice.com · Last 3 days · Contract & Third Party · AI Verified</div>
+              <h2 className="tab-title">LATAM Lead Finder</h2>
+              <p className="tab-sub">
+                {tabs.length > 0 ? `Showing results from ${tabs[0]?.title}` : 'Loading latest results…'}
+              </p>
+            </div>
+            <button className="refresh-btn" onClick={() => tabs[0] && loadTabData(tabs[0].title)} disabled={loading}>
+              {loading ? <><Loader2 size={15} className="spin" /> Loading…</> : <><RefreshCw size={15} /> Refresh</>}
+            </button>
           </div>
-          <button className={`scrape-btn ${scrapeStatus === 'running' ? 'running' : ''}`}
-            onClick={runScrape} disabled={scrapeStatus === 'running'}>
-            {scrapeStatus === 'running'
-              ? <><Loader2 size={16} className="spin" /> Pulling leads…</>
-              : <><RefreshCw size={16} /> Pull fresh leads</>}
-          </button>
-        </div>
-        <StatusBar status={scrapeStatus} progress={progress} />
-      </section>
 
-      {/* Stats */}
-      {jobs.length > 0 && (
-        <div className="stats-row">
-          <div className="stat-card">
-            <span className="stat-num">{jobs.length}</span>
-            <span className="stat-label">Total leads</span>
+          {error && <div className="error-bar"><AlertCircle size={14} /> {error}</div>}
+
+          {loading ? (
+            <div className="loading-state"><Loader2 size={32} className="spin" /><p>Loading leads…</p></div>
+          ) : (
+            <>
+              <StatsBar jobs={jobs} />
+              <main className="main-content">
+                {jobs.length > 0 ? <JobTable jobs={jobs} /> : (
+                  <div className="empty-state">
+                    <img src={`${process.env.PUBLIC_URL}/fd-logo.png`} alt="" className="empty-logo" />
+                    <p className="empty-title">No leads for this date</p>
+                    <p className="empty-desc">Try selecting a different date in the History tab, or run the scraper to pull fresh leads.</p>
+                  </div>
+                )}
+              </main>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* History Tab */}
+      {activeTab === 'history' && (
+        <div className="tab-content">
+          <div className="tab-hero">
+            <div className="tab-hero-text">
+              <div className="tab-eyebrow">Up to 7 most recent runs</div>
+              <h2 className="tab-title">Run History</h2>
+              <p className="tab-sub">Select any date to view that day's leads.</p>
+            </div>
           </div>
-          <div className="stat-card">
-            <span className="stat-num">{new Set(jobs.map(j => j.company)).size}</span>
-            <span className="stat-label">Companies</span>
-          </div>
-          <div className="stat-card">
-            <span className="stat-num">{new Set(jobs.map(j => j.keyword)).size}</span>
-            <span className="stat-label">Keywords matched</span>
-          </div>
-          <div className="stat-card">
-            <span className="stat-num">{jobs.filter(j => (j.workType || '').toLowerCase().includes('remote')).length}</span>
-            <span className="stat-label">Remote roles</span>
+
+          <div className="history-grid">
+            {loadingTabs ? (
+              <div className="loading-state"><Loader2 size={32} className="spin" /><p>Loading history…</p></div>
+            ) : tabs.length === 0 ? (
+              <div className="empty-state">
+                <p className="empty-title">No runs yet</p>
+                <p className="empty-desc">Run the scraper to start building history.</p>
+              </div>
+            ) : (
+              tabs.map(tab => (
+                <button key={tab.title} className={`history-card ${selectedTab === tab.title ? 'active' : ''}`}
+                  onClick={() => { loadTabData(tab.title); setActiveTab('latest'); }}>
+                  <Calendar size={20} className="history-icon" />
+                  <span className="history-date">{tab.title}</span>
+                  <span className="history-action">View leads →</span>
+                </button>
+              ))
+            )}
           </div>
         </div>
       )}
 
-      {/* Table */}
-      <main className="main-content">
-        {jobs.length > 0 ? <JobTable jobs={jobs} /> : (
-          <div className="empty-state">
-            <FDLogo height={48} className="empty-logo" />
-            <p className="empty-title">No leads yet</p>
-            <p className="empty-desc">Click "Pull fresh leads" to search Dice for verified LATAM contract opportunities.</p>
+      {/* Run Scraper Tab */}
+      {activeTab === 'run' && (
+        <div className="tab-content">
+          <div className="tab-hero">
+            <div className="tab-hero-text">
+              <div className="tab-eyebrow">Manual trigger</div>
+              <h2 className="tab-title">Run Scraper</h2>
+              <p className="tab-sub">The scraper runs automatically every day at 8AM Eastern. Use this to trigger a manual run.</p>
+            </div>
           </div>
-        )}
-      </main>
 
-      <footer className="app-footer">Fast Dolphin Consulting Group · Internal use only · {new Date().getFullYear()}</footer>
+          <div className="run-section">
+            <div className="run-card">
+              <div className="run-info">
+                <div className="run-schedule">
+                  <Clock size={18} />
+                  <div>
+                    <div className="run-schedule-label">Automatic schedule</div>
+                    <div className="run-schedule-value">Every day at 8:00 AM Eastern</div>
+                  </div>
+                </div>
+                <div className="run-details">
+                  <div className="run-detail-item"><span>Keywords</span><span>16 LATAM keywords</span></div>
+                  <div className="run-detail-item"><span>Filter</span><span>Contract & Third Party only</span></div>
+                  <div className="run-detail-item"><span>Date range</span><span>Last 3 days</span></div>
+                  <div className="run-detail-item"><span>AI verification</span><span>Claude Haiku</span></div>
+                  <div className="run-detail-item"><span>Duration</span><span>~10-15 minutes</span></div>
+                  <div className="run-detail-item"><span>Notification</span><span>Email on completion</span></div>
+                </div>
+              </div>
+
+              <div className="run-action">
+                <button className={`run-btn ${runStatus === 'running' ? 'running' : ''}`}
+                  onClick={triggerScraper} disabled={runStatus === 'running'}>
+                  {runStatus === 'running'
+                    ? <><Loader2 size={18} className="spin" /> Opening GitHub Actions…</>
+                    : <><Play size={18} /> Run Now</>}
+                </button>
+
+                {runStatus === 'done' && (
+                  <div className="run-status done">
+                    <CheckCircle2 size={16} /> {runMsg}
+                  </div>
+                )}
+                {runStatus === 'error' && (
+                  <div className="run-status error">
+                    <AlertCircle size={16} /> {runMsg}
+                  </div>
+                )}
+                {!runStatus && (
+                  <p className="run-note">Clicking "Run Now" will open GitHub Actions in a new tab where you can trigger the scraper with one click.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <footer className="app-footer">
+        Fast Dolphin Consulting Group · Internal use only · {new Date().getFullYear()}
+      </footer>
     </div>
   );
 }
