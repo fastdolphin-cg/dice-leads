@@ -14,30 +14,51 @@ function getSession() { return sessionStorage.getItem('fd_user'); }
 function clearSession() { sessionStorage.removeItem('fd_user'); }
 
 // ─── Google Sheets fetcher ────────────────────────────────────────────────────
-async function fetchSheetTabs() {
-  // Fetch the sheet metadata to get all tab names
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`;
-  const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(
-    `https://spreadsheets.google.com/feeds/worksheets/${SHEET_ID}/public/basic?alt=json`
-  )}`);
-  if (!res.ok) throw new Error('Could not fetch sheet tabs');
-  const data = await res.json();
-  const entries = data.feed?.entry || [];
-  return entries.map(e => ({
-    title: e.title.$t,
-    id: e.id.$t.split('/').pop(),
-  })).filter(t => t.title !== 'Sheet1');
-}
-
 async function fetchTabData(tabName) {
-  // Use the published CSV URL with gid lookup
   const encodedTab = encodeURIComponent(tabName);
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodedTab}`;
-  const proxied = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-  const res = await fetch(proxied);
-  if (!res.ok) throw new Error(`Could not fetch tab: ${tabName}`);
-  const csv = await res.text();
-  return parseCSV(csv);
+  const proxies = [
+    `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  ];
+  for (const proxied of proxies) {
+    try {
+      const res = await fetch(proxied);
+      if (res.ok) {
+        const csv = await res.text();
+        if (csv && csv.length > 50 && !csv.includes('error')) return parseCSV(csv);
+      }
+    } catch (_) { continue; }
+  }
+  throw new Error(`Could not fetch tab: ${tabName}`);
+}
+
+async function fetchSheetTabs() {
+  // Generate candidate tab names for last 14 days and probe which exist
+  const today = new Date();
+  const candidates = [];
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const tabName = d.toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric'
+    });
+    candidates.push({ title: tabName });
+  }
+
+  const validTabs = [];
+  for (const tab of candidates) {
+    try {
+      const data = await fetchTabData(tab.title);
+      if (data.length > 0) {
+        validTabs.push(tab);
+        if (validTabs.length >= 7) break;
+      }
+    } catch (_) { continue; }
+  }
+
+  if (validTabs.length === 0) throw new Error('No data found in sheet. Run the scraper first.');
+  return validTabs;
 }
 
 function parseCSV(csv) {
