@@ -111,7 +111,8 @@ def ai_filter_job(title, company, location, keyword, description):
         )
         message = client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=200,
+            max_tokens=500,
+            system="You are a strict JSON-only responder. Always respond with valid JSON only, no other text.",
             messages=[{"role": "user", "content": prompt}]
         )
         response_text = message.content[0].text.strip()
