@@ -152,17 +152,17 @@ function JobTable({ jobs }) {
       <div className="table-wrap">
         <table className="leads-table">
           <colgroup>
-            <col style={{width:'160px'}} />
+            <col style={{width:'180px'}} />
+            <col style={{width:'140px'}} />
             <col style={{width:'130px'}} />
+            <col style={{width:'320px'}} />
+            <col style={{width:'90px'}}  />
+            <col style={{width:'140px'}} />
+            <col style={{width:'80px'}}  />
             <col style={{width:'110px'}} />
-            <col style={{width:'120px'}} />
-            <col style={{width:'80px'}}  />
-            <col style={{width:'120px'}} />
-            <col style={{width:'75px'}}  />
-            <col style={{width:'100px'}} />
-            <col style={{width:'80px'}}  />
-            <col style={{width:'260px'}} />
-            <col style={{width:'36px'}}  />
+            <col style={{width:'90px'}}  />
+            <col style={{width:'280px'}} />
+            <col style={{width:'40px'}}  />
           </colgroup>
           <thead>
             <tr>
