@@ -474,6 +474,52 @@ def send_email(job_count, tab_name):
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
+
+# ─── Save JSON to GitHub ──────────────────────────────────────────────────────
+
+def save_json_to_github(jobs, tab_name):
+    """Save results as JSON files in public/data/ and push to GitHub."""
+    import glob
+    import subprocess
+
+    os.makedirs('public/data', exist_ok=True)
+
+    payload = {
+        "tab": tab_name,
+        "scraped_at": datetime.now().isoformat(),
+        "count": len(jobs),
+        "jobs": jobs
+    }
+
+    with open('public/data/latest.json', 'w') as f:
+        json.dump(payload, f, indent=2)
+    print("✅ Wrote public/data/latest.json")
+
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    with open(f'public/data/{date_str}.json', 'w') as f:
+        json.dump(payload, f, indent=2)
+    print(f"✅ Wrote public/data/{date_str}.json")
+
+    dated_files = sorted(glob.glob('public/data/????-??-??.json'), reverse=True)[:7]
+    index = [os.path.basename(f).replace('.json', '') for f in dated_files]
+    with open('public/data/index.json', 'w') as f:
+        json.dump(index, f)
+    print(f"✅ Wrote public/data/index.json: {index}")
+
+    subprocess.run(['git', 'config', 'user.email', 'scraper@fastdolphin.com'], check=True)
+    subprocess.run(['git', 'config', 'user.name', 'Fast Dolphin Scraper'], check=True)
+    subprocess.run(['git', 'add', 'public/data/'], check=True)
+    result = subprocess.run(['git', 'commit', '-m', f'Data: {tab_name} ({len(jobs)} leads)'],
+                           capture_output=True, text=True)
+    if result.returncode == 0:
+        subprocess.run(['git', 'push'], check=True)
+        print("✅ Data pushed to GitHub")
+    else:
+        print("ℹ️ Nothing to commit")
+
+
+# ─── Main ─────────────────────────────────────────────────────────────────────
+
 if __name__ == "__main__":
     print(f"Fast Dolphin LATAM Lead Scraper — AI Edition")
     print(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -493,50 +539,3 @@ if __name__ == "__main__":
     send_email(len(jobs), tab_name)
 
     print("\nDone!")
-
-
-# ─── Save JSON to GitHub ──────────────────────────────────────────────────────
-
-def save_json_to_github(jobs, tab_name):
-    """Save results as JSON files in public/data/ and push to GitHub."""
-    import glob
-    import subprocess
-
-    os.makedirs('public/data', exist_ok=True)
-
-    payload = {
-        "tab": tab_name,
-        "scraped_at": datetime.now().isoformat(),
-        "count": len(jobs),
-        "jobs": jobs
-    }
-
-    # Always write latest.json
-    with open('public/data/latest.json', 'w') as f:
-        json.dump(payload, f, indent=2)
-    print("✅ Wrote public/data/latest.json")
-
-    # Write dated file e.g. 2026-07-08.json
-    date_str = datetime.now().strftime("%Y-%m-%d")
-    with open(f'public/data/{date_str}.json', 'w') as f:
-        json.dump(payload, f, indent=2)
-    print(f"✅ Wrote public/data/{date_str}.json")
-
-    # Write index.json listing available dates (newest first, max 7)
-    dated_files = sorted(glob.glob('public/data/????-??-??.json'), reverse=True)[:7]
-    index = [os.path.basename(f).replace('.json', '') for f in dated_files]
-    with open('public/data/index.json', 'w') as f:
-        json.dump(index, f)
-    print(f"✅ Wrote public/data/index.json: {index}")
-
-    # Git push
-    subprocess.run(['git', 'config', 'user.email', 'scraper@fastdolphin.com'], check=True)
-    subprocess.run(['git', 'config', 'user.name', 'Fast Dolphin Scraper'], check=True)
-    subprocess.run(['git', 'add', 'public/data/'], check=True)
-    result = subprocess.run(['git', 'commit', '-m', f'Data: {tab_name} ({len(jobs)} leads)'],
-                           capture_output=True, text=True)
-    if result.returncode == 0:
-        subprocess.run(['git', 'push'], check=True)
-        print("✅ Data pushed to GitHub")
-    else:
-        print("ℹ️ Nothing to commit")
