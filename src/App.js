@@ -68,17 +68,17 @@ function LoginScreen({ onLogin }) {
 
 // ─── Table ────────────────────────────────────────────────────────────────────
 const COLUMNS = [
-  { key: 'Job Title',         label: 'Job Title',       sortable: true  },
-  { key: 'Company',           label: 'Company',         sortable: true  },
-  { key: 'Location',          label: 'Location',        sortable: true  },
-  { key: 'Employment Type',   label: 'Emp. Type',       sortable: false },
-  { key: 'Work Type',         label: 'Work Type',       sortable: false },
-  { key: 'Corp to Corp',      label: 'C2C',             sortable: false },
-  { key: 'Pay',               label: 'Pay',             sortable: false },
-  { key: 'Contract Duration', label: 'Duration',        sortable: false },
-  { key: 'Keyword',           label: 'Keyword',         sortable: true  },
-  { key: 'AI Reason',         label: 'Why LATAM',       sortable: false },
-  { key: 'Job URL',           label: 'Link',            sortable: false },
+  { key: 'Job Title',         label: 'Job Title',   sortable: true  },
+  { key: 'Company',           label: 'Company',     sortable: true  },
+  { key: 'Location',          label: 'Location',    sortable: true  },
+  { key: 'Employment Type',   label: 'Emp. Type',   sortable: false },
+  { key: 'Work Type',         label: 'Work',        sortable: false },
+  { key: 'Corp to Corp',      label: 'C2C',         sortable: false },
+  { key: 'Contract Duration', label: 'Duration',    sortable: false },
+  { key: 'Pay',               label: 'Pay',         sortable: false },
+  { key: 'Keyword',           label: 'Keyword',     sortable: true  },
+  { key: 'AI Reason',         label: 'Why LATAM',   sortable: false },
+  { key: 'Job URL',           label: '',            sortable: false },
 ];
 
 function JobTable({ jobs }) {
@@ -151,6 +151,19 @@ function JobTable({ jobs }) {
       </div>
       <div className="table-wrap">
         <table className="leads-table">
+          <colgroup>
+            <col style={{width:'160px'}} />
+            <col style={{width:'130px'}} />
+            <col style={{width:'110px'}} />
+            <col style={{width:'120px'}} />
+            <col style={{width:'80px'}}  />
+            <col style={{width:'120px'}} />
+            <col style={{width:'75px'}}  />
+            <col style={{width:'100px'}} />
+            <col style={{width:'80px'}}  />
+            <col style={{width:'260px'}} />
+            <col style={{width:'36px'}}  />
+          </colgroup>
           <thead>
             <tr>
               {COLUMNS.map(col => (
@@ -173,16 +186,16 @@ function JobTable({ jobs }) {
                   <td className="col-company">{job['Company']}</td>
                   <td className="col-location">{job['Location']}</td>
                   <td><span className="tag tag-blue">{job['Employment Type'] || '—'}</span></td>
-                  <td>{job['Work Type'] || '—'}</td>
+                  <td className="col-center">{job['Work Type'] || '—'}</td>
                   <td>{job['Corp to Corp'] || '—'}</td>
+                  <td className="col-center">{job['Contract Duration'] || '—'}</td>
                   <td className="col-pay">{job['Pay'] || '—'}</td>
-                  <td>{job['Contract Duration'] || '—'}</td>
                   <td><span className="tag tag-gold">{job['Keyword']}</span></td>
                   <td className="col-reason">{job['AI Reason'] || '—'}</td>
-                  <td>
+                  <td className="col-link">
                     {job['Job URL'] ? (
-                      <a href={job['Job URL']} target="_blank" rel="noopener noreferrer" className="job-link">
-                        View <ExternalLink size={11} />
+                      <a href={job['Job URL']} target="_blank" rel="noopener noreferrer" className="job-link-icon" title="View job">
+                        <ExternalLink size={14} />
                       </a>
                     ) : '—'}
                   </td>
