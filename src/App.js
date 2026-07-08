@@ -14,52 +14,71 @@ function getSession() { return sessionStorage.getItem('fd_user'); }
 function clearSession() { sessionStorage.removeItem('fd_user'); }
 
 // ─── Google Sheets fetcher ────────────────────────────────────────────────────
+const PUBLISHED_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTOiRNHYdliJrKl7AIkh6oavJgMftbtnE40MS9bOWy1L03X7qdym3-fMEz8FSSiD9Ngsy5eryFw5CYb/pub?output=csv';
+
 async function fetchTabData(tabName) {
-  const encodedTab = encodeURIComponent(tabName);
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodedTab}`;
-  const proxies = [
-    `https://corsproxy.io/?${encodeURIComponent(url)}`,
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-  ];
-  for (const proxied of proxies) {
+  // For "latest" we use the published CSV URL directly (no proxy needed)
+  // For historical tabs we use gviz with proxy
+  const urls = tabName === 'latest'
+    ? [PUBLISHED_CSV]
+    : [
+        `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}`,
+        `https://corsproxy.io/?${encodeURIComponent(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}`)}`,
+      ];
+
+  for (const url of urls) {
     try {
-      const res = await fetch(proxied);
+      const res = await fetch(url);
       if (res.ok) {
         const csv = await res.text();
-        if (csv && csv.length > 50 && !csv.includes('error')) return parseCSV(csv);
+        if (csv && csv.length > 50 && !csv.toLowerCase().includes('<html')) {
+          const parsed = parseCSV(csv);
+          if (parsed.length > 0) return parsed;
+        }
       }
     } catch (_) { continue; }
   }
-  throw new Error(`Could not fetch tab: ${tabName}`);
+  throw new Error(`Could not fetch data for: ${tabName}`);
 }
 
 async function fetchSheetTabs() {
-  // Generate candidate tab names for last 14 days and probe which exist
+  // Always show "Latest" as first tab, then probe for historical tabs
   const today = new Date();
   const candidates = [];
-  for (let i = 0; i < 14; i++) {
+  for (let i = 0; i < 30; i++) {
     const d = new Date(today);
     d.setDate(today.getDate() - i);
-    const tabName = d.toLocaleDateString('en-US', {
-      month: 'short', day: 'numeric', year: 'numeric'
-    });
-    candidates.push({ title: tabName });
+    const month = d.toLocaleDateString('en-US', { month: 'short' });
+    const day = d.getDate();
+    const year = d.getFullYear();
+    candidates.push(`${month} ${String(day).padStart(2, '0')}, ${year}`);
+    candidates.push(`${month} ${day}, ${year}`);
   }
 
+  // Probe in parallel batches
   const validTabs = [];
-  for (const tab of candidates) {
-    try {
-      const data = await fetchTabData(tab.title);
-      if (data.length > 0) {
-        validTabs.push(tab);
-        if (validTabs.length >= 7) break;
+  const seen = new Set();
+  const unique = candidates.filter(c => { if (seen.has(c)) return false; seen.add(c); return true; });
+
+  for (let i = 0; i < unique.length && validTabs.length < 7; i += 6) {
+    const batch = unique.slice(i, i + 6);
+    const results = await Promise.allSettled(
+      batch.map(async name => { const d = await fetchTabData(name); return { name, count: d.length }; })
+    );
+    for (const r of results) {
+      if (r.status === 'fulfilled' && r.value.count > 0) {
+        validTabs.push({ title: r.value.name });
       }
-    } catch (_) { continue; }
+    }
+    if (validTabs.length >= 3 && i >= 12) break;
   }
 
-  if (validTabs.length === 0) throw new Error('No data found in sheet. Run the scraper first.');
-  return validTabs;
+  // Always prepend "Latest" tab which reads from published URL
+  return [{ title: 'Latest' }, ...validTabs.slice(0, 6)];
 }
+
+
+
 
 function parseCSV(csv) {
   const lines = csv.split('\n').filter(l => l.trim());
@@ -306,18 +325,13 @@ export default function App() {
     setLoadingTabs(true);
     try {
       const sheetTabs = await fetchSheetTabs();
-      // Sort newest first
-      const sorted = sheetTabs.sort((a, b) => {
-        const da = new Date(a.title), db = new Date(b.title);
-        return db - da;
-      });
-      setTabs(sorted);
-      if (sorted.length > 0) {
-        setSelectedTab(sorted[0].title);
-        loadTabData(sorted[0].title);
+      setTabs(sheetTabs);
+      if (sheetTabs.length > 0) {
+        setSelectedTab(sheetTabs[0].title);
+        loadTabData(sheetTabs[0].title);
       }
     } catch (e) {
-      setError('Could not load sheet tabs. ' + e.message);
+      setError('Could not load data: ' + e.message);
     } finally {
       setLoadingTabs(false);
     }
@@ -386,7 +400,7 @@ export default function App() {
               <div className="tab-eyebrow">Dice.com · Last 3 days · Contract & Third Party · AI Verified</div>
               <h2 className="tab-title">LATAM Lead Finder</h2>
               <p className="tab-sub">
-                {tabs.length > 0 ? `Showing results from ${tabs[0]?.title}` : 'Loading latest results…'}
+                {tabs.length > 0 ? `Showing results from ${tabs[0]?.title === 'Latest' ? 'today\'s scrape' : tabs[0]?.title}` : 'Loading latest results…'}
               </p>
             </div>
             <button className="refresh-btn" onClick={() => tabs[0] && loadTabData(tabs[0].title)} disabled={loading}>
