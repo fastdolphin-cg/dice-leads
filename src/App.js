@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Search, LogOut, Download, RefreshCw, ChevronUp, ChevronDown, ExternalLink, Filter, X, AlertCircle, CheckCircle2, Loader2, Calendar, Clock, BarChart2, Play } from 'lucide-react';
 import './App.css';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const ALLOWED_DOMAIN = 'fastdolphin.com';
-const SHEET_ID = '14Gjeh1TiJTIq0IhhAA0cKumraUy1Q0d99hmbhI1AtV8';
-const APP_URL = 'https://fastdolphin-cg.github.io/dice-leads';
+const BASE_URL = `${window.location.origin}${process.env.PUBLIC_URL}`;
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 function isValidEmail(e) { return e.toLowerCase().endsWith(`@${ALLOWED_DOMAIN}`); }
@@ -13,103 +12,23 @@ function saveSession(e) { sessionStorage.setItem('fd_user', e); }
 function getSession() { return sessionStorage.getItem('fd_user'); }
 function clearSession() { sessionStorage.removeItem('fd_user'); }
 
-// ─── Google Sheets fetcher ────────────────────────────────────────────────────
-const PUBLISHED_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTOiRNHYdliJrKl7AIkh6oavJgMftbtnE40MS9bOWy1L03X7qdym3-fMEz8FSSiD9Ngsy5eryFw5CYb/pub?output=csv';
-
-async function fetchTabData(tabName) {
-  // For "latest" we use the published CSV URL directly (no proxy needed)
-  // For historical tabs we use gviz with proxy
-  const urls = tabName === 'latest'
-    ? [PUBLISHED_CSV]
-    : [
-        `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}`,
-        `https://corsproxy.io/?${encodeURIComponent(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}`)}`,
-      ];
-
-  for (const url of urls) {
-    try {
-      const res = await fetch(url);
-      if (res.ok) {
-        const csv = await res.text();
-        if (csv && csv.length > 50 && !csv.toLowerCase().includes('<html')) {
-          const parsed = parseCSV(csv);
-          if (parsed.length > 0) return parsed;
-        }
-      }
-    } catch (_) { continue; }
-  }
-  throw new Error(`Could not fetch data for: ${tabName}`);
+// ─── Data fetchers ────────────────────────────────────────────────────────────
+async function fetchIndex() {
+  const res = await fetch(`${BASE_URL}/data/index.json?t=${Date.now()}`);
+  if (!res.ok) throw new Error('No data available yet. Run the scraper first.');
+  return res.json();
 }
 
-async function fetchSheetTabs() {
-  // Always show "Latest" as first tab, then probe for historical tabs
-  const today = new Date();
-  const candidates = [];
-  for (let i = 0; i < 30; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
-    const month = d.toLocaleDateString('en-US', { month: 'short' });
-    const day = d.getDate();
-    const year = d.getFullYear();
-    candidates.push(`${month} ${String(day).padStart(2, '0')}, ${year}`);
-    candidates.push(`${month} ${day}, ${year}`);
-  }
-
-  // Probe in parallel batches
-  const validTabs = [];
-  const seen = new Set();
-  const unique = candidates.filter(c => { if (seen.has(c)) return false; seen.add(c); return true; });
-
-  for (let i = 0; i < unique.length && validTabs.length < 7; i += 6) {
-    const batch = unique.slice(i, i + 6);
-    const results = await Promise.allSettled(
-      batch.map(async name => { const d = await fetchTabData(name); return { name, count: d.length }; })
-    );
-    for (const r of results) {
-      if (r.status === 'fulfilled' && r.value.count > 0) {
-        validTabs.push({ title: r.value.name });
-      }
-    }
-    if (validTabs.length >= 3 && i >= 12) break;
-  }
-
-  // Always prepend "Latest" tab which reads from published URL
-  return [{ title: 'Latest' }, ...validTabs.slice(0, 6)];
+async function fetchLatest() {
+  const res = await fetch(`${BASE_URL}/data/latest.json?t=${Date.now()}`);
+  if (!res.ok) throw new Error('No data available yet. Run the scraper first.');
+  return res.json();
 }
 
-
-
-
-function parseCSV(csv) {
-  const lines = csv.split('\n').filter(l => l.trim());
-  if (lines.length < 2) return [];
-  
-  const parseRow = (line) => {
-    const result = [];
-    let inQuotes = false;
-    let current = '';
-    for (let i = 0; i < line.length; i++) {
-      if (line[i] === '"') {
-        if (inQuotes && line[i+1] === '"') { current += '"'; i++; }
-        else inQuotes = !inQuotes;
-      } else if (line[i] === ',' && !inQuotes) {
-        result.push(current.trim());
-        current = '';
-      } else {
-        current += line[i];
-      }
-    }
-    result.push(current.trim());
-    return result;
-  };
-
-  const headers = parseRow(lines[0]);
-  return lines.slice(1).map(line => {
-    const values = parseRow(line);
-    const obj = {};
-    headers.forEach((h, i) => { obj[h] = values[i] || ''; });
-    return obj;
-  }).filter(row => row['Job Title']);
+async function fetchByDate(dateStr) {
+  const res = await fetch(`${BASE_URL}/data/${dateStr}.json?t=${Date.now()}`);
+  if (!res.ok) throw new Error(`No data for ${dateStr}`);
+  return res.json();
 }
 
 // ─── Login ────────────────────────────────────────────────────────────────────
@@ -149,23 +68,23 @@ function LoginScreen({ onLogin }) {
 
 // ─── Table ────────────────────────────────────────────────────────────────────
 const COLUMNS = [
-  { key: 'Job Title',       label: 'Job Title',         sortable: true  },
-  { key: 'Company',         label: 'Company',           sortable: true  },
-  { key: 'Location',        label: 'Location',          sortable: true  },
-  { key: 'Employment Type', label: 'Employment Type',   sortable: false },
-  { key: 'Work Type',       label: 'Work Type',         sortable: false },
-  { key: 'Corp to Corp',    label: 'Corp to Corp',      sortable: false },
-  { key: 'Pay',             label: 'Pay',               sortable: false },
+  { key: 'Job Title',         label: 'Job Title',       sortable: true  },
+  { key: 'Company',           label: 'Company',         sortable: true  },
+  { key: 'Location',          label: 'Location',        sortable: true  },
+  { key: 'Employment Type',   label: 'Emp. Type',       sortable: false },
+  { key: 'Work Type',         label: 'Work Type',       sortable: false },
+  { key: 'Corp to Corp',      label: 'C2C',             sortable: false },
+  { key: 'Pay',               label: 'Pay',             sortable: false },
   { key: 'Contract Duration', label: 'Duration',        sortable: false },
-  { key: 'Keyword',         label: 'Keyword',           sortable: true  },
-  { key: 'AI Reason',       label: 'Why LATAM',         sortable: false },
-  { key: 'Job URL',         label: 'Link',              sortable: false },
+  { key: 'Keyword',           label: 'Keyword',         sortable: true  },
+  { key: 'AI Reason',         label: 'Why LATAM',       sortable: false },
+  { key: 'Job URL',           label: 'Link',            sortable: false },
 ];
 
 function JobTable({ jobs }) {
-  const [search, setSearch]     = useState('');
-  const [sortCol, setSortCol]   = useState('');
-  const [sortDir, setSortDir]   = useState('asc');
+  const [search, setSearch]   = useState('');
+  const [sortCol, setSortCol] = useState('');
+  const [sortDir, setSortDir] = useState('asc');
   const [filterKw, setFilterKw] = useState('');
 
   const keywords = useMemo(() => [...new Set(jobs.map(j => j['Keyword']))].filter(Boolean).sort(), [jobs]);
@@ -253,7 +172,7 @@ function JobTable({ jobs }) {
                   <td className="col-title">{job['Job Title']}</td>
                   <td className="col-company">{job['Company']}</td>
                   <td className="col-location">{job['Location']}</td>
-                  <td className="col-emptype"><span className="tag tag-blue">{job['Employment Type'] || '—'}</span></td>
+                  <td><span className="tag tag-blue">{job['Employment Type'] || '—'}</span></td>
                   <td>{job['Work Type'] || '—'}</td>
                   <td>{job['Corp to Corp'] || '—'}</td>
                   <td className="col-pay">{job['Pay'] || '—'}</td>
@@ -292,7 +211,7 @@ function StatsBar({ jobs }) {
       </div>
       <div className="stat-card">
         <span className="stat-num">{new Set(jobs.map(j => j['Keyword'])).size}</span>
-        <span className="stat-label">Keywords matched</span>
+        <span className="stat-label">Keywords</span>
       </div>
       <div className="stat-card">
         <span className="stat-num">{jobs.filter(j => (j['Work Type'] || '').toLowerCase().includes('remote')).length}</span>
@@ -304,65 +223,75 @@ function StatsBar({ jobs }) {
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
-  const [user, setUser]             = useState(getSession());
-  const [activeTab, setActiveTab]   = useState('latest');
-  const [tabs, setTabs]             = useState([]);
-  const [selectedTab, setSelectedTab] = useState('');
-  const [jobs, setJobs]             = useState([]);
-  const [loading, setLoading]       = useState(false);
-  const [loadingTabs, setLoadingTabs] = useState(false);
-  const [error, setError]           = useState('');
-  const [runStatus, setRunStatus]   = useState(null); // null | 'running' | 'done' | 'error'
-  const [runMsg, setRunMsg]         = useState('');
+  const [user, setUser]               = useState(getSession());
+  const [activeTab, setActiveTab]     = useState('latest');
+  const [dateIndex, setDateIndex]     = useState([]);
+  const [jobs, setJobs]               = useState([]);
+  const [currentDate, setCurrentDate] = useState('');
+  const [scrapedAt, setScrapedAt]     = useState('');
+  const [loading, setLoading]         = useState(false);
+  const [error, setError]             = useState('');
+  const [runStatus, setRunStatus]     = useState(null);
+  const [runMsg, setRunMsg]           = useState('');
 
-  // Load available tabs on mount
   useEffect(() => {
     if (!user) return;
-    loadTabs();
+    loadLatest();
+    loadIndex();
   }, [user]);
 
-  async function loadTabs() {
-    setLoadingTabs(true);
-    try {
-      const sheetTabs = await fetchSheetTabs();
-      setTabs(sheetTabs);
-      if (sheetTabs.length > 0) {
-        setSelectedTab(sheetTabs[0].title);
-        loadTabData(sheetTabs[0].title);
-      }
-    } catch (e) {
-      setError('Could not load data: ' + e.message);
-    } finally {
-      setLoadingTabs(false);
-    }
-  }
-
-  async function loadTabData(tabName) {
+  async function loadLatest() {
     setLoading(true);
     setError('');
     try {
-      const data = await fetchTabData(tabName);
-      setJobs(data);
-      setSelectedTab(tabName);
+      const data = await fetchLatest();
+      setJobs(data.jobs || []);
+      setCurrentDate(data.tab || 'Latest');
+      setScrapedAt(data.scraped_at || '');
     } catch (e) {
-      setError('Could not load data for ' + tabName + '. ' + e.message);
+      setError(e.message);
       setJobs([]);
     } finally {
       setLoading(false);
     }
   }
 
-  async function triggerScraper() {
+  async function loadIndex() {
+    try {
+      const index = await fetchIndex();
+      setDateIndex(index);
+    } catch (_) {}
+  }
+
+  async function loadByDate(dateStr) {
+    setLoading(true);
+    setError('');
+    setActiveTab('latest');
+    try {
+      const data = await fetchByDate(dateStr);
+      setJobs(data.jobs || []);
+      setCurrentDate(data.tab || dateStr);
+      setScrapedAt(data.scraped_at || '');
+    } catch (e) {
+      setError(e.message);
+      setJobs([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function triggerScraper() {
     setRunStatus('running');
-    setRunMsg('Triggering scraper… this will take 10-15 minutes to complete.');
-    // We can't trigger GitHub Actions directly from a static site without a token
-    // So we'll redirect the user to GitHub Actions
     setTimeout(() => {
       window.open('https://github.com/fastdolphin-cg/dice-leads/actions/workflows/scraper.yml', '_blank');
       setRunStatus('done');
-      setRunMsg('GitHub Actions opened in a new tab. Click "Run workflow" to start the scraper. Results will appear here after ~15 minutes.');
-    }, 500);
+      setRunMsg('GitHub Actions opened in a new tab. Click "Run workflow" → "Run workflow" to start. Results will appear here after ~15 minutes.');
+    }, 400);
   }
+
+  const formattedScrapedAt = scrapedAt
+    ? new Date(scrapedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    : '';
 
   if (!user) return <LoginScreen onLogin={email => setUser(email)} />;
 
@@ -392,7 +321,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* Latest Leads Tab */}
+      {/* Latest Leads */}
       {activeTab === 'latest' && (
         <div className="tab-content">
           <div className="tab-hero">
@@ -400,10 +329,11 @@ export default function App() {
               <div className="tab-eyebrow">Dice.com · Last 3 days · Contract & Third Party · AI Verified</div>
               <h2 className="tab-title">LATAM Lead Finder</h2>
               <p className="tab-sub">
-                {tabs.length > 0 ? `Showing results from ${tabs[0]?.title === 'Latest' ? 'today\'s scrape' : tabs[0]?.title}` : 'Loading latest results…'}
+                {currentDate ? `Results from ${currentDate}` : 'Loading…'}
+                {formattedScrapedAt && <span className="last-run"> · Scraped {formattedScrapedAt}</span>}
               </p>
             </div>
-            <button className="refresh-btn" onClick={() => tabs[0] && loadTabData(tabs[0].title)} disabled={loading}>
+            <button className="refresh-btn" onClick={loadLatest} disabled={loading}>
               {loading ? <><Loader2 size={15} className="spin" /> Loading…</> : <><RefreshCw size={15} /> Refresh</>}
             </button>
           </div>
@@ -417,11 +347,13 @@ export default function App() {
               <StatsBar jobs={jobs} />
               <main className="main-content">
                 {jobs.length > 0 ? <JobTable jobs={jobs} /> : (
-                  <div className="empty-state">
-                    <img src={`${process.env.PUBLIC_URL}/fd-logo.png`} alt="" className="empty-logo" />
-                    <p className="empty-title">No leads for this date</p>
-                    <p className="empty-desc">Try selecting a different date in the History tab, or run the scraper to pull fresh leads.</p>
-                  </div>
+                  !error && (
+                    <div className="empty-state">
+                      <img src={`${process.env.PUBLIC_URL}/fd-logo.png`} alt="" className="empty-logo" />
+                      <p className="empty-title">No leads yet</p>
+                      <p className="empty-desc">Run the scraper to pull fresh LATAM contract leads from Dice.</p>
+                    </div>
+                  )
                 )}
               </main>
             </>
@@ -429,31 +361,28 @@ export default function App() {
         </div>
       )}
 
-      {/* History Tab */}
+      {/* History */}
       {activeTab === 'history' && (
         <div className="tab-content">
           <div className="tab-hero">
             <div className="tab-hero-text">
               <div className="tab-eyebrow">Up to 7 most recent runs</div>
               <h2 className="tab-title">Run History</h2>
-              <p className="tab-sub">Select any date to view that day's leads.</p>
+              <p className="tab-sub">Select any date to view that day's verified leads.</p>
             </div>
           </div>
-
           <div className="history-grid">
-            {loadingTabs ? (
-              <div className="loading-state"><Loader2 size={32} className="spin" /><p>Loading history…</p></div>
-            ) : tabs.length === 0 ? (
+            {dateIndex.length === 0 ? (
               <div className="empty-state">
-                <p className="empty-title">No runs yet</p>
+                <p className="empty-title">No history yet</p>
                 <p className="empty-desc">Run the scraper to start building history.</p>
               </div>
             ) : (
-              tabs.map(tab => (
-                <button key={tab.title} className={`history-card ${selectedTab === tab.title ? 'active' : ''}`}
-                  onClick={() => { loadTabData(tab.title); setActiveTab('latest'); }}>
+              dateIndex.map(dateStr => (
+                <button key={dateStr} className={`history-card ${currentDate === dateStr ? 'active' : ''}`}
+                  onClick={() => loadByDate(dateStr)}>
                   <Calendar size={20} className="history-icon" />
-                  <span className="history-date">{tab.title}</span>
+                  <span className="history-date">{new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' })}</span>
                   <span className="history-action">View leads →</span>
                 </button>
               ))
@@ -462,7 +391,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Run Scraper Tab */}
+      {/* Run Scraper */}
       {activeTab === 'run' && (
         <div className="tab-content">
           <div className="tab-hero">
@@ -472,7 +401,6 @@ export default function App() {
               <p className="tab-sub">The scraper runs automatically every day at 8AM Eastern. Use this to trigger a manual run.</p>
             </div>
           </div>
-
           <div className="run-section">
             <div className="run-card">
               <div className="run-info">
@@ -492,7 +420,6 @@ export default function App() {
                   <div className="run-detail-item"><span>Notification</span><span>Email on completion</span></div>
                 </div>
               </div>
-
               <div className="run-action">
                 <button className={`run-btn ${runStatus === 'running' ? 'running' : ''}`}
                   onClick={triggerScraper} disabled={runStatus === 'running'}>
@@ -500,19 +427,11 @@ export default function App() {
                     ? <><Loader2 size={18} className="spin" /> Opening GitHub Actions…</>
                     : <><Play size={18} /> Run Now</>}
                 </button>
-
                 {runStatus === 'done' && (
-                  <div className="run-status done">
-                    <CheckCircle2 size={16} /> {runMsg}
-                  </div>
-                )}
-                {runStatus === 'error' && (
-                  <div className="run-status error">
-                    <AlertCircle size={16} /> {runMsg}
-                  </div>
+                  <div className="run-status done"><CheckCircle2 size={16} /> {runMsg}</div>
                 )}
                 {!runStatus && (
-                  <p className="run-note">Clicking "Run Now" will open GitHub Actions in a new tab where you can trigger the scraper with one click.</p>
+                  <p className="run-note">Clicking "Run Now" opens GitHub Actions in a new tab. Click "Run workflow" to start the scraper. Results appear here after ~15 minutes.</p>
                 )}
               </div>
             </div>
