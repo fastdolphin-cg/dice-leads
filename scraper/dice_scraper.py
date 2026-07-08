@@ -116,14 +116,21 @@ def ai_filter_job(title, company, location, keyword, description):
             messages=[{"role": "user", "content": prompt}]
         )
         response_text = message.content[0].text.strip()
+        print(f"  🔍 Raw AI response: {response_text[:200]}")
+        # Strip markdown code blocks if present
+        if response_text.startswith("```"):
+            response_text = response_text.split("```")[1]
+            if response_text.startswith("json"):
+                response_text = response_text[4:]
+        response_text = response_text.strip()
         result = json.loads(response_text)
         decision = result.get("decision", "NO").upper()
         reason = result.get("reason", "")
         print(f"  🤖 AI: {decision} — {reason}")
         return decision == "YES", reason
     except Exception as e:
-        print(f"  ⚠️ AI filter error: {e} — keeping job by default")
-        return True, "AI filter error - included by default"
+        print(f"  ⚠️ AI filter error: {type(e).__name__}: {e} — keeping job by default")
+        return True, f"AI filter error: {type(e).__name__}: {e}"
 
 
 # ─── Selenium Setup ───────────────────────────────────────────────────────────
