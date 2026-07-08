@@ -273,11 +273,36 @@ def scrape_all():
                             recruiter = safe_text(driver, "p[data-testid='recruiterName']")
 
                             description = ""
-                            try:
-                                desc_el = driver.find_element(By.CSS_SELECTOR, "div.job-description")
-                                description = desc_el.text
-                            except:
-                                pass
+                            # Try multiple selectors to find job description
+                            desc_selectors = [
+                                "div.job-description",
+                                "[data-testid='jobDescriptionHtml']",
+                                "div[data-cy='jobDescription']",
+                                "section.job-description",
+                                "#jobDescription",
+                                "div.job-details",
+                                "div.description",
+                                "article",
+                                "main",
+                            ]
+                            for sel in desc_selectors:
+                                try:
+                                    desc_el = driver.find_element(By.CSS_SELECTOR, sel)
+                                    text = desc_el.text.strip()
+                                    if text and len(text) > 100:
+                                        description = text
+                                        break
+                                except:
+                                    continue
+                            
+                            # Last resort: get all visible text from body
+                            if not description:
+                                try:
+                                    description = driver.find_element(By.TAG_NAME, "body").text[:3000]
+                                except:
+                                    pass
+                            
+                            print(f"  📝 Description length: {len(description)} chars")
 
                             # ── AI FILTER ──────────────────────────────────
                             ai_checked += 1
