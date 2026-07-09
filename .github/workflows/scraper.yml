@@ -3,10 +3,35 @@ name: Daily LATAM Lead Scraper
 on:
   schedule:
     - cron: '0 13 * * *'  # 8AM Eastern (UTC-5) = 13:00 UTC
-  workflow_dispatch:       # Manual trigger from GitHub
+  workflow_dispatch:
+    inputs:
+      keywords:
+        description: 'Comma-separated keywords (leave empty for defaults)'
+        required: false
+        default: ''
+      employment_types:
+        description: 'Comma-separated employment types (leave empty for defaults)'
+        required: false
+        default: ''
+      date_range:
+        description: 'Number of days to look back (1-30)'
+        required: false
+        default: '3'
+      ai_model:
+        description: 'AI model to use (haiku or sonnet)'
+        required: false
+        default: 'haiku'
+      send_email:
+        description: 'Send email notification (true or false)'
+        required: false
+        default: 'true'
+      run_label:
+        description: 'Label for this run (e.g. "Modified Run")'
+        required: false
+        default: ''
 
 permissions:
-  contents: write          # Required to push JSON data files
+  contents: write
 
 jobs:
   scrape:
@@ -40,4 +65,10 @@ jobs:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SCRAPER_KEYWORDS: ${{ github.event.inputs.keywords }}
+          SCRAPER_EMPLOYMENT_TYPES: ${{ github.event.inputs.employment_types }}
+          SCRAPER_DATE_RANGE: ${{ github.event.inputs.date_range }}
+          SCRAPER_AI_MODEL: ${{ github.event.inputs.ai_model }}
+          SCRAPER_SEND_EMAIL: ${{ github.event.inputs.send_email }}
+          SCRAPER_RUN_LABEL: ${{ github.event.inputs.run_label }}
         run: python scraper/dice_scraper.py
