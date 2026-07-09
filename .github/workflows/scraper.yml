@@ -2,7 +2,8 @@ name: Daily LATAM Lead Scraper
 
 on:
   schedule:
-    - cron: '0 12 * * *'  # 8AM EDT (UTC-4 in summer) = 12:00 UTC
+    - cron: '0 12 * * *'    # 8:00 AM EDT (UTC-4)
+    - cron: '30 19 * * *'   # 3:30 PM EDT (UTC-4)
   workflow_dispatch:
     inputs:
       keywords:
@@ -16,7 +17,7 @@ on:
       date_range:
         description: 'Number of days to look back (1-30)'
         required: false
-        default: '3'
+        default: '2'
       ai_model:
         description: 'AI model to use (haiku or sonnet)'
         required: false
