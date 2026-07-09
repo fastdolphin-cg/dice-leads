@@ -346,23 +346,27 @@ body {
 .history-grid {
   max-width: 1400px; margin: 24px auto;
   padding: 0 28px;
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 16px;
 }
 .history-card {
   background: var(--navy-mid);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 24px 20px;
-  display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+  padding: 20px;
+  display: flex; align-items: flex-start; gap: 12px;
   cursor: pointer; text-align: left;
   transition: border-color 0.18s, background 0.18s, transform 0.12s;
 }
 .history-card:hover { border-color: var(--blue); background: rgba(27,108,242,0.08); transform: translateY(-2px); }
 .history-card.active { border-color: var(--blue); background: rgba(27,108,242,0.12); }
-.history-icon { color: var(--teal); }
-.history-date { font-family: var(--font-display); font-size: 1rem; font-weight: 600; color: var(--white); }
-.history-action { font-size: 0.82rem; color: var(--blue-soft); }
+.history-card-modified { border-color: rgba(0,194,168,0.3); }
+.history-card-modified:hover { border-color: var(--teal); }
+.history-icon { color: var(--teal); flex-shrink: 0; margin-top: 2px; }
+.history-card-body { display: flex; flex-direction: column; gap: 3px; }
+.history-date { font-family: var(--font-display); font-size: 0.95rem; font-weight: 600; color: var(--white); }
+.history-time { font-size: 0.78rem; color: var(--muted); }
+.history-action { font-size: 0.82rem; color: var(--blue-soft); margin-top: 4px; }
 
 /* â”€â”€â”€ Run Scraper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .run-panels {
