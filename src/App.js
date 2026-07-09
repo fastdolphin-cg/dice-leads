@@ -247,7 +247,13 @@ function HistoryCard({ dateStr, isActive, onClick }) {
   const displayTime = meta?.scraped_at
     ? (() => {
         try {
-          return new Date(meta.scraped_at).toLocaleTimeString('en-US', {
+          // Handle both ISO format with timezone and without
+          const dateStr = meta.scraped_at.includes('+') || meta.scraped_at.endsWith('Z')
+            ? meta.scraped_at
+            : meta.scraped_at + 'Z'; // treat as UTC if no timezone
+          const d = new Date(dateStr);
+          if (isNaN(d.getTime())) return '';
+          return d.toLocaleTimeString('en-US', {
             hour: 'numeric', minute: '2-digit',
             timeZone: 'America/New_York', timeZoneName: 'short'
           });
