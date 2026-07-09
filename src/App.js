@@ -234,6 +234,286 @@ function StatsBar({ jobs }) {
   );
 }
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+const GH_TOKEN = process.env.REACT_APP_GH_TOKEN;
+const GH_OWNER = 'fastdolphin-cg';
+const GH_REPO = 'dice-leads';
+const GH_WORKFLOW = 'scraper.yml';
+
+const DEFAULT_KEYWORDS = [
+  'mexico','spanish','brazil','brasil','argentina','colombia',
+  'ecuador','costa rica','panama','portuguese','latam',
+  'latin america','maquiladora','chile','bolivia','peru',
+];
+
+const EMPLOYMENT_OPTIONS = [
+  { id: 'CONTRACTS', label: 'Contract W2' },
+  { id: 'THIRD_PARTY', label: 'Third Party' },
+  { id: 'CONTRACT_INDEPENDENT', label: 'Contract Independent' },
+  { id: 'FULLTIME', label: 'Full Time' },
+  { id: 'PARTTIME', label: 'Part Time' },
+];
+
+async function triggerGitHubWorkflow(inputs = {}) {
+  const res = await fetch(
+    `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/actions/workflows/${GH_WORKFLOW}/dispatches`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${GH_TOKEN}`,
+        'Accept': 'application/vnd.github+json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ref: 'main', inputs }),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`GitHub API error ${res.status}: ${err}`);
+  }
+  return true;
+}
+
+// ─── Run Scraper Tab ──────────────────────────────────────────────────────────
+function RunScraperTab() {
+  // Standard run state
+  const [stdStatus, setStdStatus] = useState(null);
+  const [stdMsg, setStdMsg]       = useState('');
+
+  // Modified run state
+  const [keywords, setKeywords]       = useState([...DEFAULT_KEYWORDS]);
+  const [newKw, setNewKw]             = useState('');
+  const [empTypes, setEmpTypes]       = useState(['CONTRACTS','THIRD_PARTY']);
+  const [dateRange, setDateRange]     = useState(3);
+  const [aiModel, setAiModel]         = useState('haiku');
+  const [sendEmail, setSendEmail]     = useState(true);
+  const [showSonnetWarn, setShowSonnetWarn] = useState(false);
+  const [modStatus, setModStatus]     = useState(null);
+  const [modMsg, setModMsg]           = useState('');
+
+  async function runStandard() {
+    setStdStatus('running');
+    setStdMsg('');
+    try {
+      await triggerGitHubWorkflow({});
+      setStdStatus('done');
+      setStdMsg('Scraper started! Results will appear in ~15 minutes.');
+    } catch (e) {
+      setStdStatus('error');
+      setStdMsg(e.message);
+    }
+  }
+
+  async function runModified() {
+    setModStatus('running');
+    setModMsg('');
+    try {
+      const inputs = {
+        keywords: keywords.join(','),
+        employment_types: empTypes.join('|'),
+        date_range: String(dateRange),
+        ai_model: aiModel,
+        send_email: String(sendEmail),
+        run_label: 'Modified Run',
+      };
+      await triggerGitHubWorkflow(inputs);
+      setModStatus('done');
+      setModMsg('Modified scrape started! Results will appear in ~15 minutes.');
+    } catch (e) {
+      setModStatus('error');
+      setModMsg(e.message);
+    }
+  }
+
+  function toggleKw(kw) {
+    setKeywords(prev => prev.includes(kw) ? prev.filter(k => k !== kw) : [...prev, kw]);
+  }
+
+  function addKw() {
+    const k = newKw.trim().toLowerCase();
+    if (k && !keywords.includes(k)) { setKeywords(prev => [...prev, k]); }
+    setNewKw('');
+  }
+
+  function toggleEmp(id) {
+    setEmpTypes(prev => prev.includes(id) ? prev.filter(e => e !== id) : [...prev, id]);
+  }
+
+  function handleModelChange(m) {
+    if (m === 'sonnet') { setShowSonnetWarn(true); }
+    else { setAiModel('haiku'); }
+  }
+
+  return (
+    <div className="tab-content">
+      <div className="tab-hero">
+        <div className="tab-hero-text">
+          <div className="tab-eyebrow">Manual trigger</div>
+          <h2 className="tab-title">Run Scraper</h2>
+          <p className="tab-sub">Runs automatically every day at 8AM Eastern. Use the buttons below to trigger a manual run.</p>
+        </div>
+      </div>
+
+      <div className="run-panels">
+
+        {/* Standard Run */}
+        <div className="run-card">
+          <div className="run-card-header">
+            <div className="run-card-title">Standard Run</div>
+            <div className="run-card-sub">Default settings · ~15 min</div>
+          </div>
+          <div className="run-info">
+            <div className="run-schedule">
+              <Clock size={16} />
+              <div>
+                <div className="run-schedule-label">Automatic schedule</div>
+                <div className="run-schedule-value">Every day at 8:00 AM Eastern</div>
+              </div>
+            </div>
+            <div className="run-details">
+              <div className="run-detail-item"><span>Keywords</span><span>16 LATAM keywords</span></div>
+              <div className="run-detail-item"><span>Employment type</span><span>Contract & Third Party</span></div>
+              <div className="run-detail-item"><span>Date range</span><span>Last 3 days</span></div>
+              <div className="run-detail-item"><span>AI model</span><span>Claude Haiku</span></div>
+              <div className="run-detail-item"><span>Notification</span><span>Email on completion</span></div>
+            </div>
+          </div>
+          <div className="run-action">
+            <button className={`run-btn ${stdStatus === 'running' ? 'running' : ''}`}
+              onClick={runStandard} disabled={stdStatus === 'running' || modStatus === 'running'}>
+              {stdStatus === 'running'
+                ? <><Loader2 size={16} className="spin" /> Starting…</>
+                : <><Play size={16} /> Run Now</>}
+            </button>
+            {stdStatus === 'done' && <div className="run-status done"><CheckCircle2 size={14} /> {stdMsg}</div>}
+            {stdStatus === 'error' && <div className="run-status error"><AlertCircle size={14} /> {stdMsg}</div>}
+          </div>
+        </div>
+
+        {/* Modified Run */}
+        <div className="run-card run-card-modified">
+          <div className="run-card-header">
+            <div className="run-card-title">Modified Run</div>
+            <div className="run-card-sub">Custom settings · one-time only</div>
+          </div>
+          <div className="run-info">
+
+            {/* Keywords */}
+            <div className="mod-section">
+              <div className="mod-label">Keywords</div>
+              <div className="kw-chips">
+                {DEFAULT_KEYWORDS.map(kw => (
+                  <button key={kw} className={`kw-chip ${keywords.includes(kw) ? 'active' : 'inactive'}`}
+                    onClick={() => toggleKw(kw)}>
+                    {kw} {keywords.includes(kw) ? '×' : '+'}
+                  </button>
+                ))}
+                {keywords.filter(k => !DEFAULT_KEYWORDS.includes(k)).map(kw => (
+                  <button key={kw} className="kw-chip active custom"
+                    onClick={() => toggleKw(kw)}>
+                    {kw} ×
+                  </button>
+                ))}
+              </div>
+              <div className="kw-add">
+                <input className="kw-input" placeholder="Add keyword…" value={newKw}
+                  onChange={e => setNewKw(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && addKw()} />
+                <button className="kw-add-btn" onClick={addKw}>Add</button>
+              </div>
+            </div>
+
+            {/* Employment Type */}
+            <div className="mod-section">
+              <div className="mod-label">Employment Type</div>
+              <div className="check-group">
+                {EMPLOYMENT_OPTIONS.map(opt => (
+                  <label key={opt.id} className="check-item">
+                    <input type="checkbox" checked={empTypes.includes(opt.id)}
+                      onChange={() => toggleEmp(opt.id)} />
+                    <span>{opt.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Date Range */}
+            <div className="mod-section">
+              <div className="mod-label">Date Range — Last <strong>{dateRange}</strong> day{dateRange !== 1 ? 's' : ''}</div>
+              <input type="range" min="1" max="30" value={dateRange}
+                onChange={e => setDateRange(Number(e.target.value))}
+                className="date-slider" />
+              <div className="date-slider-labels"><span>1 day</span><span>30 days</span></div>
+            </div>
+
+            {/* AI Model */}
+            <div className="mod-section">
+              <div className="mod-label">AI Model</div>
+              <div className="radio-group">
+                <label className="radio-item">
+                  <input type="radio" name="model" value="haiku" checked={aiModel === 'haiku'}
+                    onChange={() => handleModelChange('haiku')} />
+                  <span>Claude Haiku <em>(fast, ~$0.001/job)</em></span>
+                </label>
+                <label className="radio-item">
+                  <input type="radio" name="model" value="sonnet" checked={aiModel === 'sonnet'}
+                    onChange={() => handleModelChange('sonnet')} />
+                  <span>Claude Sonnet 4.6 <em>(smarter, ~$0.01/job)</em></span>
+                </label>
+              </div>
+            </div>
+
+            {/* Notification */}
+            <div className="mod-section">
+              <div className="mod-label">Notification</div>
+              <div className="radio-group">
+                <label className="radio-item">
+                  <input type="radio" name="notify" checked={sendEmail}
+                    onChange={() => setSendEmail(true)} />
+                  <span>Email on completion</span>
+                </label>
+                <label className="radio-item">
+                  <input type="radio" name="notify" checked={!sendEmail}
+                    onChange={() => setSendEmail(false)} />
+                  <span>No email — results in app only</span>
+                </label>
+              </div>
+            </div>
+
+          </div>
+          <div className="run-action">
+            <button className={`run-btn run-btn-modified ${modStatus === 'running' ? 'running' : ''}`}
+              onClick={runModified} disabled={modStatus === 'running' || stdStatus === 'running' || keywords.length === 0 || empTypes.length === 0}>
+              {modStatus === 'running'
+                ? <><Loader2 size={16} className="spin" /> Starting…</>
+                : <><Play size={16} /> Run Modified Scrape</>}
+            </button>
+            {modStatus === 'done' && <div className="run-status done"><CheckCircle2 size={14} /> {modMsg}</div>}
+            {modStatus === 'error' && <div className="run-status error"><AlertCircle size={14} /> {modMsg}</div>}
+          </div>
+        </div>
+
+      </div>
+
+      {/* Sonnet Warning Modal */}
+      {showSonnetWarn && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-title">⚠️ Higher Cost Warning</div>
+            <p className="modal-body">Claude Sonnet 4.6 is approximately <strong>10× more expensive</strong> than Haiku (~$0.01 per job vs ~$0.001). For a typical run of 20-30 jobs this could cost $0.20-$0.30 instead of $0.02-$0.03.</p>
+            <p className="modal-body">Are you sure you want to use Sonnet for this run?</p>
+            <div className="modal-actions">
+              <button className="modal-btn-cancel" onClick={() => setShowSonnetWarn(false)}>Cancel — keep Haiku</button>
+              <button className="modal-btn-confirm" onClick={() => { setAiModel('sonnet'); setShowSonnetWarn(false); }}>Yes, use Sonnet</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [user, setUser]               = useState(getSession());
@@ -409,50 +689,7 @@ export default function App() {
 
       {/* Run Scraper */}
       {activeTab === 'run' && (
-        <div className="tab-content">
-          <div className="tab-hero">
-            <div className="tab-hero-text">
-              <div className="tab-eyebrow">Manual trigger</div>
-              <h2 className="tab-title">Run Scraper</h2>
-              <p className="tab-sub">The scraper runs automatically every day at 8AM Eastern. Use this to trigger a manual run.</p>
-            </div>
-          </div>
-          <div className="run-section">
-            <div className="run-card">
-              <div className="run-info">
-                <div className="run-schedule">
-                  <Clock size={18} />
-                  <div>
-                    <div className="run-schedule-label">Automatic schedule</div>
-                    <div className="run-schedule-value">Every day at 8:00 AM Eastern</div>
-                  </div>
-                </div>
-                <div className="run-details">
-                  <div className="run-detail-item"><span>Keywords</span><span>16 LATAM keywords</span></div>
-                  <div className="run-detail-item"><span>Filter</span><span>Contract & Third Party only</span></div>
-                  <div className="run-detail-item"><span>Date range</span><span>Last 3 days</span></div>
-                  <div className="run-detail-item"><span>AI verification</span><span>Claude Haiku</span></div>
-                  <div className="run-detail-item"><span>Duration</span><span>~10-15 minutes</span></div>
-                  <div className="run-detail-item"><span>Notification</span><span>Email on completion</span></div>
-                </div>
-              </div>
-              <div className="run-action">
-                <button className={`run-btn ${runStatus === 'running' ? 'running' : ''}`}
-                  onClick={triggerScraper} disabled={runStatus === 'running'}>
-                  {runStatus === 'running'
-                    ? <><Loader2 size={18} className="spin" /> Opening GitHub Actions…</>
-                    : <><Play size={18} /> Run Now</>}
-                </button>
-                {runStatus === 'done' && (
-                  <div className="run-status done"><CheckCircle2 size={16} /> {runMsg}</div>
-                )}
-                {!runStatus && (
-                  <p className="run-note">Clicking "Run Now" opens GitHub Actions in a new tab. Click "Run workflow" to start the scraper. Results appear here after ~15 minutes.</p>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        <RunScraperTab />
       )}
 
       {/* AI Prompt */}
