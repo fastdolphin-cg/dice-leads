@@ -524,31 +524,41 @@ def send_email(job_count, tab_name):
 
 # ─── Save JSON to GitHub ──────────────────────────────────────────────────────
 
-def save_json_to_github(jobs, tab_name):
+def save_json_to_github(jobs, tab_name, run_label=""):
     """Save results as JSON files in public/data/ and push to GitHub."""
     import glob
     import subprocess
 
     os.makedirs('public/data', exist_ok=True)
 
+    now = datetime.now()
     payload = {
         "tab": tab_name,
-        "scraped_at": datetime.now().isoformat(),
+        "scraped_at": now.isoformat(),
         "count": len(jobs),
+        "run_label": run_label,
         "jobs": jobs
     }
 
+    # Always update latest.json
     with open('public/data/latest.json', 'w') as f:
         json.dump(payload, f, indent=2)
     print("✅ Wrote public/data/latest.json")
 
-    date_str = datetime.now().strftime("%Y-%m-%d")
+    # For dated file: use timestamp to avoid overwriting standard run
+    if run_label:
+        date_str = now.strftime("%Y-%m-%d-%H%M")  # e.g. 2026-07-08-1430
+    else:
+        date_str = now.strftime("%Y-%m-%d")  # e.g. 2026-07-08
+
     with open(f'public/data/{date_str}.json', 'w') as f:
         json.dump(payload, f, indent=2)
     print(f"✅ Wrote public/data/{date_str}.json")
 
-    dated_files = sorted(glob.glob('public/data/????-??-??.json'), reverse=True)[:7]
-    index = [os.path.basename(f).replace('.json', '') for f in dated_files]
+    # index.json — include all dated files, newest first, max 7
+    all_files = sorted(glob.glob('public/data/????-??-??.json') +
+                       glob.glob('public/data/????-??-??-????.json'), reverse=True)[:7]
+    index = [os.path.basename(f).replace('.json', '') for f in all_files]
     with open('public/data/index.json', 'w') as f:
         json.dump(index, f)
     print(f"✅ Wrote public/data/index.json: {index}")
@@ -585,7 +595,7 @@ if __name__ == "__main__":
         tab_name = f"{tab_name} ({cfg['run_label']})"
 
     print("\nSaving JSON to GitHub...")
-    save_json_to_github(jobs, tab_name)
+    save_json_to_github(jobs, tab_name, cfg.get('run_label', ''))
 
     if cfg['send_email']:
         print("\nSending email notification...")
