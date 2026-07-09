@@ -209,7 +209,19 @@ function JobTable({ jobs }) {
   );
 }
 
-// ─── Stats Bar ────────────────────────────────────────────────────────────────
+function formatDateStr(dateStr) {
+  // Handle both "2026-07-08" and "2026-07-08-1430" formats
+  const isModified = dateStr.length > 10;
+  const datePart = dateStr.slice(0, 10);
+  const timePart = isModified ? dateStr.slice(11) : '';
+  const d = new Date(datePart + 'T12:00:00');
+  const dateLabel = d.toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' });
+  if (isModified) {
+    const h = timePart.slice(0, 2), m = timePart.slice(2, 4);
+    return `${dateLabel} · ${h}:${m} (Modified)`;
+  }
+  return dateLabel;
+}
 function StatsBar({ jobs }) {
   if (!jobs.length) return null;
   return (
@@ -678,7 +690,7 @@ export default function App() {
                 <button key={dateStr} className={`history-card ${currentDate === dateStr ? 'active' : ''}`}
                   onClick={() => loadByDate(dateStr)}>
                   <Calendar size={20} className="history-icon" />
-                  <span className="history-date">{new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' })}</span>
+                  <span className="history-date">{formatDateStr(dateStr)}</span>
                   <span className="history-action">View leads →</span>
                 </button>
               ))
