@@ -31,7 +31,11 @@ SHEET_ID = "14Gjeh1TiJTIq0IhhAA0cKumraUy1Q0d99hmbhI1AtV8"
 MAX_TABS = 7
 GMAIL_USER = os.environ["GMAIL_USER"]
 GMAIL_APP_PASSWORD = os.environ["GMAIL_APP_PASSWORD"]
-NOTIFY_EMAILS = ["carlos.guerrero@fastdolphin.com"]
+NOTIFY_EMAILS = [
+    "carlos.guerrero@fastdolphin.com",
+    "ramon.osuna@fastdolphin.com",
+    "daniel.riojas@fastdolphin.com",
+]
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}"
 
 # ─── Read runtime overrides from environment ───────────────────────────────────
