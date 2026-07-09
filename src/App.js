@@ -36,7 +36,7 @@ async function fetchCountForDate(dateStr) {
     const res = await fetch(`${BASE_URL}/data/${dateStr}.json`);
     if (!res.ok) return null;
     const data = await res.json();
-    return { count: data.count || 0, scraped_at: data.scraped_at_eastern || data.scraped_at || '', run_label: data.run_label || '' };
+    return { count: data.count || 0, scraped_at: data.scraped_at || '', scraped_at_eastern: data.scraped_at_eastern || '', run_label: data.run_label || '' };
   } catch (_) { return null; }
 }
 
@@ -244,26 +244,17 @@ function HistoryCard({ dateStr, isActive, onClick }) {
   const d = new Date(datePart + 'T12:00:00');
   const dateLabel = d.toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' });
 
-  const displayTime = meta?.scraped_at
-    ? (() => {
-        try {
-          // Clean up the date string and try multiple approaches
-          let s = meta.scraped_at.trim();
-          // If it has timezone offset like -04:00, it's already timezone-aware
-          // If no timezone info, assume Eastern
-          let d = new Date(s);
-          if (isNaN(d.getTime())) {
-            // Try adding Z to treat as UTC
-            d = new Date(s + 'Z');
-          }
-          if (isNaN(d.getTime())) return '';
-          return d.toLocaleTimeString('en-US', {
-            hour: 'numeric', minute: '2-digit',
-            timeZone: 'America/New_York', timeZoneName: 'short'
-          });
-        } catch (_) { return ''; }
-      })()
-    : '';
+  const displayTime = meta?.scraped_at_eastern || (() => {
+    if (!meta?.scraped_at) return '';
+    try {
+      const d = new Date(meta.scraped_at);
+      if (isNaN(d.getTime())) return '';
+      return d.toLocaleTimeString('en-US', {
+        hour: 'numeric', minute: '2-digit',
+        timeZone: 'America/New_York', timeZoneName: 'short'
+      });
+    } catch (_) { return ''; }
+  })();
 
   return (
     <button className={`history-card ${isActive ? 'active' : ''} ${isModified ? 'history-card-modified' : ''}`} onClick={onClick}>
