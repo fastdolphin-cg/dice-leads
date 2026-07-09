@@ -1,7 +1,9 @@
 {
-  "tab": "Jul 09, 2026 (Modified Run)",
-  "scraped_at": "2026-07-09T00:35:46.689122",
+  "tab": "Jul 09, 2026",
+  "scraped_at": "2026-07-09T09:19:29.307332-04:00",
+  "scraped_at_eastern": "2026-07-09 09:19 AM ET",
   "count": 16,
+  "run_label": "",
   "jobs": [
     {
       "Job Title": "Sr lead Java Developer /architect - San Francisco",
@@ -15,7 +17,7 @@
       "Pay": "",
       "Keyword": "mexico",
       "AI Verified": "Yes",
-      "AI Reason": "The job requires the candidate to be a 'Team Player and able to connect with stakeholders within LC, CG Offshore and Team in Mexico,' indicating that working with a team in Mexico is part of the actual job requirements, not just a company office location.",
+      "AI Reason": "The job requires the candidate to be 'able to connect with stakeholders within LC, CG Offshore and Team in Mexico,' which indicates Mexico is part of the actual job requirements and work responsibilities, not just a company office location.",
       "Job URL": "https://www.dice.com/job-detail/1d2ee2e5-03e1-44f9-8450-07bf07eb10c6",
       "Date Scraped": "2026-07-09"
     },
@@ -31,7 +33,7 @@
       "Pay": "$60 - $88/hr",
       "Keyword": "spanish",
       "AI Verified": "Yes",
-      "AI Reason": "The job description explicitly requires 'excellent communication skills in Spanish and English' as part of the role requirements, which qualifies as a language skill requirement for the position.",
+      "AI Reason": "The job description explicitly states 'Ideal candidate will have excellent communication skills in Spanish and English' as a job requirement, which qualifies as a required language skill for the position.",
       "Job URL": "https://www.dice.com/job-detail/c105f130-7410-4f32-829b-13bc5918674f",
       "Date Scraped": "2026-07-09"
     },
@@ -47,7 +49,7 @@
       "Pay": "",
       "Keyword": "spanish",
       "AI Verified": "Yes",
-      "AI Reason": "The job posting explicitly lists 'Bilingual' and 'Spanish' as required skills in the Skills section, indicating Spanish language proficiency is a job requirement for this position.",
+      "AI Reason": "The job posting explicitly lists 'Bilingual' and 'Spanish' as required skills in the Skills section, indicating Spanish language proficiency is a job requirement for this Finance Systems Administrator position.",
       "Job URL": "https://www.dice.com/job-detail/81e238f0-52d7-4815-a8cc-f1199e8261cb",
       "Date Scraped": "2026-07-09"
     },
@@ -63,7 +65,7 @@
       "Pay": "",
       "Keyword": "spanish",
       "AI Verified": "Yes",
-      "AI Reason": "The job explicitly requires 'Bilingual- Spanish' as a must-have skill, which is a specific job requirement indicating the candidate must have Spanish language proficiency for this role.",
+      "AI Reason": "The job explicitly requires 'Bilingual- Spanish' as a must-have skill, which is a language requirement that qualifies as a genuine Latin America connection under the job requirements section.",
       "Job URL": "https://www.dice.com/job-detail/39f4107c-5dc6-4a98-a082-22ba54c42df4",
       "Date Scraped": "2026-07-09"
     },
@@ -79,24 +81,8 @@
       "Pay": "$88 - $88/hr",
       "Keyword": "spanish",
       "AI Verified": "Yes",
-      "AI Reason": "The job description explicitly requires 'excellent communication skills in Spanish and English' and 'Ideal candidate will have excellent communication skills in Spanish and English,' making Spanish language proficiency an actual job requirement, not just a company location mention.",
+      "AI Reason": "The job description explicitly requires 'excellent communication skills in Spanish and English' and 'Ideal candidate will have excellent communication skills in Spanish and English' as job requirements, which qualifies as a genuine Latin America connection through language skills requirement.",
       "Job URL": "https://www.dice.com/job-detail/09439f06-95d4-4802-bac2-fb25d36f00dd",
-      "Date Scraped": "2026-07-09"
-    },
-    {
-      "Job Title": "Taxonomy Analyst",
-      "Company": "Apetan Consulting",
-      "Recruiter": "",
-      "Location": "Remote",
-      "Employment Type": "Contract Independent, Contract W2, No Travel Required, Depends on Experience, Taxonomy Analyst, Create job alert",
-      "Work Type": "Remote",
-      "Corp to Corp": "Contract Corp To Corp",
-      "Contract Duration": "12 Months",
-      "Pay": "",
-      "Keyword": "spanish",
-      "AI Verified": "Yes",
-      "AI Reason": "Spanish is listed as a required language specialization that candidates must be proficient in, making it a genuine job requirement rather than just a company location mention.",
-      "Job URL": "https://www.dice.com/job-detail/e8f54d2c-9b6d-4d48-8a9a-2b9e192a7254",
       "Date Scraped": "2026-07-09"
     },
     {
@@ -111,7 +97,7 @@
       "Pay": "$25 - $27/hr",
       "Keyword": "spanish",
       "AI Verified": "Yes",
-      "AI Reason": "The job description explicitly states 'Bilingual (English/Spanish) is highly preferred' as a required skill and mentions 'Experience with cross-border logistics between San Diego and Tijuana is highly desirable,' both of which are actual job requirements involving Spanish language skills and work with a Latin American location (Mexico/Tijuana).",
+      "AI Reason": "The job description explicitly states 'Bilingual (English/Spanish) is highly preferred' as a preferred qualification, and 'Experience with cross-border logistics between San Diego and Tijuana is highly desirable,' both of which are job requirements that involve Spanish language skills and Latin America (Mexico/Tijuana) work responsibilities.",
       "Job URL": "https://www.dice.com/job-detail/f6a74e28-14ce-4756-a48e-5a5b30c44018",
       "Date Scraped": "2026-07-09"
     },
@@ -127,7 +113,7 @@
       "Pay": "USD $50-55/hr",
       "Keyword": "spanish",
       "AI Verified": "Yes",
-      "AI Reason": "The job explicitly requires 'Bilingual in Spanish/English' as a job requirement, and the role involves 'Ability to travel to US and Latin America project sites as required', making Latin America a genuine part of the job responsibilities and not just a company office location.",
+      "AI Reason": "The job explicitly requires 'Bilingual in Spanish/English' as a stated requirement, and the role includes 'Ability to travel to US and Latin America project sites as required', making Spanish language skills and Latin America work location both actual job requirements rather than mere company office listings.",
       "Job URL": "https://www.dice.com/job-detail/7bc767b4-26de-4757-90cb-6dcbe9d74075",
       "Date Scraped": "2026-07-09"
     },
@@ -143,24 +129,8 @@
       "Pay": "$60 - $80/hr",
       "Keyword": "spanish",
       "AI Verified": "Yes",
-      "AI Reason": "The job description explicitly states 'Ideal candidate will have excellent communication skills in Spanish and English,' which is a required language skill for the actual job position, not merely a company location mention.",
+      "AI Reason": "The job description explicitly states 'Ideal candidate will have excellent communication skills in Spanish and English,' which is a required language skill for the position, making this a genuine Latin America connection.",
       "Job URL": "https://www.dice.com/job-detail/39bbc7e2-1830-4ce7-9468-b22ff9fdd730",
-      "Date Scraped": "2026-07-09"
-    },
-    {
-      "Job Title": "IT Facilities & Infrastructure Project Manager",
-      "Company": "Maxonic, Inc.",
-      "Recruiter": "",
-      "Location": "Sunnyvale, California",
-      "Employment Type": "Contract W2, No Travel Required, Depends on Experience, IT Facilities & Infrastructure Project Manager, Create job alert",
-      "Work Type": "On-site",
-      "Corp to Corp": "",
-      "Contract Duration": "12 Months",
-      "Pay": "",
-      "Keyword": "spanish",
-      "AI Verified": "Yes",
-      "AI Reason": "The job description explicitly requires 'excellent communication skills in Spanish and English' as part of the ideal candidate qualifications, which is a language requirement for the actual job role, not just a company location mention.",
-      "Job URL": "https://www.dice.com/job-detail/70255243-dd11-480e-9c9f-0f96ef87adcb",
       "Date Scraped": "2026-07-09"
     },
     {
@@ -175,8 +145,24 @@
       "Pay": "",
       "Keyword": "spanish",
       "AI Verified": "Yes",
-      "AI Reason": "The job explicitly requires 'excellent communication skills in Spanish and English' as part of the role description, which is a language requirement for the candidate, not merely a company office location mention.",
+      "AI Reason": "The job description explicitly requires 'excellent communication skills in Spanish and English' as a key qualification for the role, which is a language requirement that qualifies as a genuine Latin America connection.",
       "Job URL": "https://www.dice.com/job-detail/a3b73bdd-a660-47c1-a142-0767d9d3be82",
+      "Date Scraped": "2026-07-09"
+    },
+    {
+      "Job Title": "IT Facilities & Infrastructure Project Manager",
+      "Company": "Maxonic, Inc.",
+      "Recruiter": "",
+      "Location": "Sunnyvale, California",
+      "Employment Type": "Contract W2, No Travel Required, Depends on Experience, IT Facilities & Infrastructure Project Manager, Create job alert",
+      "Work Type": "On-site",
+      "Corp to Corp": "",
+      "Contract Duration": "12 Months",
+      "Pay": "",
+      "Keyword": "spanish",
+      "AI Verified": "Yes",
+      "AI Reason": "The job description explicitly requires 'excellent communication skills in Spanish and English' as part of the ideal candidate qualifications, which is a genuine language requirement for the job itself, not merely a company office location mention.",
+      "Job URL": "https://www.dice.com/job-detail/70255243-dd11-480e-9c9f-0f96ef87adcb",
       "Date Scraped": "2026-07-09"
     },
     {
@@ -191,7 +177,7 @@
       "Pay": "",
       "Keyword": "argentina",
       "AI Verified": "Yes",
-      "AI Reason": "Argentina is mentioned as a mandatory requirement in the job qualifications - 'Candidates must have experience supporting payroll for one of the following countries: Norway, Spain, Portugal, or Argentina' - making it a genuine job requirement, not just a company office location.",
+      "AI Reason": "The job explicitly requires candidates to have 'experience supporting payroll for one of the following countries: Norway, Spain, Portugal, or Argentina' as a mandatory skill, making Argentina a genuine job requirement for the candidate's qualifications, not merely a company office location.",
       "Job URL": "https://www.dice.com/job-detail/3737f8ff-3abd-4723-90ab-e0dca73018c7",
       "Date Scraped": "2026-07-09"
     },
@@ -200,14 +186,14 @@
       "Company": "PMTS INC",
       "Recruiter": "",
       "Location": "Remote",
-      "Employment Type": "Contract Independent, Contract W2, Depends on Experience, SAP Success Factor, Employee Central, Payroll Integration, SD Worx, DEEL, Kronos, Contact the job poster, Create job alert",
+      "Employment Type": "Contract W2, Contract Independent, Depends on Experience, SAP Success Factor, Employee Central, Payroll Integration, SD Worx, DEEL, Kronos, Contact the job poster, Create job alert",
       "Work Type": "Remote",
       "Corp to Corp": "Contract Corp To Corp",
       "Contract Duration": "6 Months",
       "Pay": "",
       "Keyword": "argentina",
       "AI Verified": "Yes",
-      "AI Reason": "Argentina is mentioned in the job responsibilities section as part of the actual work scope: 'Global Payroll Systems (Argentina, Netherlands, Portugal, Spain)' indicating the candidate will integrate payroll systems across these countries including Argentina, making this a genuine Latin America job requirement.",
+      "AI Reason": "The job description explicitly mentions 'Global Payroll Systems (Argentina, Netherlands, Portugal, Spain)' as part of the actual job requirements and responsibilities, indicating the candidate must work with payroll systems in Argentina as a core job function, not merely as a company office location.",
       "Job URL": "https://www.dice.com/job-detail/cce3e03a-9328-4d16-b417-6342eb19b5cf",
       "Date Scraped": "2026-07-09"
     },
@@ -223,7 +209,7 @@
       "Pay": "",
       "Keyword": "argentina",
       "AI Verified": "Yes",
-      "AI Reason": "The job requires integration work with Global Payroll Systems in Argentina, Netherlands, Portugal, and Spain, where Argentina is explicitly mentioned as a specific payroll system location that the candidate must support, making this a genuine job requirement tied to Latin America.",
+      "AI Reason": "The job requires integration experience with 'Global Payroll Systems (Argentina, Netherlands, Portugal, Spain)' which explicitly mentions Argentina as a specific payroll system the candidate must work with, making it a genuine job requirement rather than just a company office location.",
       "Job URL": "https://www.dice.com/job-detail/27d4bdc3-ecba-418e-9848-59f69e797e9a",
       "Date Scraped": "2026-07-09"
     },
@@ -239,8 +225,24 @@
       "Pay": "",
       "Keyword": "latam",
       "AI Verified": "Yes",
-      "AI Reason": "The job explicitly states 'we are considering candidates located in LATAM or Canada' in the job requirements section, making candidate location in Latin America a genuine requirement for this position.",
+      "AI Reason": "The job description explicitly states 'This is a nearshore position, and we are considering candidates located in LATAM or Canada,' which indicates that LATAM is a required candidate work location for this role.",
       "Job URL": "https://www.dice.com/job-detail/6497af7c-6c0f-4265-a6ff-0e1b5428a594",
+      "Date Scraped": "2026-07-09"
+    },
+    {
+      "Job Title": "OpenText Exstream Developer",
+      "Company": "Connect Tech+Talent",
+      "Recruiter": "",
+      "Location": "Remote",
+      "Employment Type": "Contract Independent, Contract W2, Depends on Experience, OpenText Exstream, OpenText Exstream(Cloud Native), Perl, XML, SCRUM and Kanban., Linux, Contact the job poster, Create job alert",
+      "Work Type": "Remote",
+      "Corp to Corp": "",
+      "Contract Duration": "",
+      "Pay": "",
+      "Keyword": "latam",
+      "AI Verified": "Yes",
+      "AI Reason": "The job description explicitly states 'Location: Remote (LATAM)' in the job details section, which directly specifies that the candidate work location is in Latin America, qualifying as a genuine LATAM connection requirement.",
+      "Job URL": "https://www.dice.com/job-detail/e67f9abd-85fa-48a0-ba10-2c1438fef399",
       "Date Scraped": "2026-07-09"
     },
     {
@@ -255,7 +257,7 @@
       "Pay": "",
       "Keyword": "latin america",
       "AI Verified": "Yes",
-      "AI Reason": "The job requires establishing and driving HR roadmap across US, Canada, and Latin America, making Latin America a specific work responsibility and client region for the candidate, not just a company office location mention.",
+      "AI Reason": "The job description explicitly requires the candidate to 'Establish and drive HR and recruiting roadmap across the US, Canada, and Latin America' which is a core job requirement involving direct responsibility for Latin America operations, not just a company office location mention.",
       "Job URL": "https://www.dice.com/job-detail/34e2f79c-485d-4e09-b7b9-39fa66a1b93c",
       "Date Scraped": "2026-07-09"
     }
