@@ -17,24 +17,14 @@ from selenium.webdriver.support import expected_conditions as EC
 
 # ─── Configuration ────────────────────────────────────────────────────────────
 
-SEARCH_URLS = [
-    "https://www.dice.com/jobs?filters.postedDate=THREE&filters.employmentType=CONTRACTS%7CTHIRD_PARTY&q=mexico",
-    "https://www.dice.com/jobs?filters.postedDate=THREE&filters.employmentType=CONTRACTS%7CTHIRD_PARTY&q=spanish",
-    "https://www.dice.com/jobs?filters.postedDate=THREE&filters.employmentType=CONTRACTS%7CTHIRD_PARTY&q=brazil",
-    "https://www.dice.com/jobs?filters.postedDate=THREE&filters.employmentType=CONTRACTS%7CTHIRD_PARTY&q=brasil",
-    "https://www.dice.com/jobs?filters.postedDate=THREE&filters.employmentType=CONTRACTS%7CTHIRD_PARTY&q=argentina",
-    "https://www.dice.com/jobs?filters.postedDate=THREE&filters.employmentType=CONTRACTS%7CTHIRD_PARTY&q=colombia",
-    "https://www.dice.com/jobs?filters.postedDate=THREE&filters.employmentType=CONTRACTS%7CTHIRD_PARTY&q=ecuador",
-    "https://www.dice.com/jobs?filters.postedDate=THREE&filters.employmentType=CONTRACTS%7CTHIRD_PARTY&q=costa+rica",
-    "https://www.dice.com/jobs?filters.postedDate=THREE&filters.employmentType=CONTRACTS%7CTHIRD_PARTY&q=panama",
-    "https://www.dice.com/jobs?filters.postedDate=THREE&filters.employmentType=CONTRACTS%7CTHIRD_PARTY&q=portuguese",
-    "https://www.dice.com/jobs?filters.postedDate=THREE&filters.employmentType=CONTRACTS%7CTHIRD_PARTY&q=latam",
-    "https://www.dice.com/jobs?filters.postedDate=THREE&filters.employmentType=CONTRACTS%7CTHIRD_PARTY&q=latin+america",
-    "https://www.dice.com/jobs?filters.postedDate=THREE&filters.employmentType=CONTRACTS%7CTHIRD_PARTY&q=maquiladora",
-    "https://www.dice.com/jobs?filters.postedDate=THREE&filters.employmentType=CONTRACTS%7CTHIRD_PARTY&q=chile",
-    "https://www.dice.com/jobs?filters.postedDate=THREE&filters.employmentType=CONTRACTS%7CTHIRD_PARTY&q=bolivia",
-    "https://www.dice.com/jobs?filters.postedDate=THREE&filters.employmentType=CONTRACTS%7CTHIRD_PARTY&q=peru",
+# ─── Default config ───────────────────────────────────────────────────────────
+DEFAULT_KEYWORDS = [
+    "mexico", "spanish", "brazil", "brasil", "argentina", "colombia",
+    "ecuador", "costa rica", "panama", "portuguese", "latam",
+    "latin america", "maquiladora", "chile", "bolivia", "peru",
 ]
+
+DEFAULT_EMPLOYMENT_TYPES = "CONTRACTS|THIRD_PARTY"
 
 MAX_PAGES = 5
 SHEET_ID = "14Gjeh1TiJTIq0IhhAA0cKumraUy1Q0d99hmbhI1AtV8"
@@ -43,6 +33,63 @@ GMAIL_USER = os.environ["GMAIL_USER"]
 GMAIL_APP_PASSWORD = os.environ["GMAIL_APP_PASSWORD"]
 NOTIFY_EMAILS = ["carlos.guerrero@fastdolphin.com"]
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}"
+
+# ─── Read runtime overrides from environment ───────────────────────────────────
+def get_config():
+    # Keywords
+    kw_env = os.environ.get("SCRAPER_KEYWORDS", "").strip()
+    keywords = [k.strip() for k in kw_env.split(",")] if kw_env else DEFAULT_KEYWORDS
+
+    # Employment types
+    et_env = os.environ.get("SCRAPER_EMPLOYMENT_TYPES", "").strip()
+    emp_filter = et_env if et_env else DEFAULT_EMPLOYMENT_TYPES
+    # URL-encode the pipe
+    emp_filter_encoded = emp_filter.replace("|", "%7C")
+
+    # Date range
+    dr_env = os.environ.get("SCRAPER_DATE_RANGE", "3").strip()
+    try:
+        days = int(dr_env)
+        days = max(1, min(30, days))
+    except:
+        days = 3
+    date_filter = {1: "ONE", 2: "TWO", 3: "THREE", 7: "SEVEN", 14: "FOURTEEN", 30: "THIRTY"}.get(days, "THREE")
+    if days not in [1,2,3,7,14,30]:
+        date_filter = "THREE"  # fallback
+
+    # AI model
+    model_env = os.environ.get("SCRAPER_AI_MODEL", "haiku").strip().lower()
+    ai_model = "claude-sonnet-4-6" if model_env == "sonnet" else "claude-haiku-4-5-20251001"
+
+    # Email
+    send_email = os.environ.get("SCRAPER_SEND_EMAIL", "true").strip().lower() != "false"
+
+    # Run label
+    run_label = os.environ.get("SCRAPER_RUN_LABEL", "").strip()
+
+    # Build search URLs
+    search_urls = [
+        f"https://www.dice.com/jobs?filters.postedDate={date_filter}&filters.employmentType={emp_filter_encoded}&q={kw.replace(' ', '+')}"
+        for kw in keywords
+    ]
+
+    print(f"📋 Config: {len(keywords)} keywords, emp={emp_filter}, days={days}, model={ai_model}, email={send_email}")
+    if run_label:
+        print(f"🏷️  Run label: {run_label}")
+
+    return {
+        "keywords": keywords,
+        "search_urls": search_urls,
+        "ai_model": ai_model,
+        "send_email": send_email,
+        "run_label": run_label,
+        "date_filter": date_filter,
+        "emp_filter": emp_filter,
+    }
+
+# Build SEARCH_URLS for backward compatibility
+_cfg = get_config()
+SEARCH_URLS = _cfg["search_urls"]
 
 # ─── Claude AI Filter ─────────────────────────────────────────────────────────
 
@@ -110,7 +157,7 @@ def ai_filter_job(title, company, location, keyword, description):
             description=desc_truncated
         )
         message = client.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model=_cfg["ai_model"],
             max_tokens=500,
             system="You are a strict JSON-only responder. Always respond with valid JSON only, no other text.",
             messages=[{"role": "user", "content": prompt}]
@@ -521,7 +568,9 @@ def save_json_to_github(jobs, tab_name):
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    print(f"Fast Dolphin LATAM Lead Scraper — AI Edition")
+    cfg = get_config()
+    label = f" [{cfg['run_label']}]" if cfg['run_label'] else ""
+    print(f"Fast Dolphin LATAM Lead Scraper — AI Edition{label}")
     print(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 50)
 
@@ -531,11 +580,17 @@ if __name__ == "__main__":
 
     print("\nWriting to Google Sheets...")
     tab_name = write_to_sheets(jobs)
+    # Add label to tab name if this is a modified run
+    if cfg['run_label']:
+        tab_name = f"{tab_name} ({cfg['run_label']})"
 
     print("\nSaving JSON to GitHub...")
     save_json_to_github(jobs, tab_name)
 
-    print("\nSending email notification...")
-    send_email(len(jobs), tab_name)
+    if cfg['send_email']:
+        print("\nSending email notification...")
+        send_email(len(jobs), tab_name)
+    else:
+        print("\nSkipping email (send_email=false)")
 
     print("\nDone!")
