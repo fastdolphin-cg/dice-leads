@@ -31,6 +31,15 @@ async function fetchByDate(dateStr) {
   return res.json();
 }
 
+async function fetchCountForDate(dateStr) {
+  try {
+    const res = await fetch(`${BASE_URL}/data/${dateStr}.json`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return { count: data.count || 0, scraped_at: data.scraped_at_eastern || data.scraped_at || '', run_label: data.run_label || '' };
+  } catch (_) { return null; }
+}
+
 // ─── Login ────────────────────────────────────────────────────────────────────
 function LoginScreen({ onLogin }) {
   const [email, setEmail] = useState('');
@@ -222,6 +231,44 @@ function formatDateStr(dateStr) {
   }
   return dateLabel;
 }
+
+function HistoryCard({ dateStr, isActive, onClick }) {
+  const [meta, setMeta] = useState(null);
+
+  useEffect(() => {
+    fetchCountForDate(dateStr).then(setMeta);
+  }, [dateStr]);
+
+  const isModified = dateStr.length > 10;
+  const datePart = dateStr.slice(0, 10);
+  const d = new Date(datePart + 'T12:00:00');
+  const dateLabel = d.toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' });
+
+  const displayTime = meta?.scraped_at
+    ? (() => {
+        try {
+          return new Date(meta.scraped_at).toLocaleTimeString('en-US', {
+            hour: 'numeric', minute: '2-digit',
+            timeZone: 'America/New_York', timeZoneName: 'short'
+          });
+        } catch (_) { return ''; }
+      })()
+    : '';
+
+  return (
+    <button className={`history-card ${isActive ? 'active' : ''} ${isModified ? 'history-card-modified' : ''}`} onClick={onClick}>
+      <Calendar size={20} className="history-icon" />
+      <div className="history-card-body">
+        <span className="history-date">{dateLabel}</span>
+        {displayTime && <span className="history-time">{displayTime}{isModified ? ' · Modified' : ''}</span>}
+        <span className="history-action">
+          View {meta !== null ? `${meta.count} lead${meta.count !== 1 ? 's' : ''}` : '…'} →
+        </span>
+      </div>
+    </button>
+  );
+}
+
 function StatsBar({ jobs }) {
   if (!jobs.length) return null;
   return (
@@ -687,12 +734,8 @@ export default function App() {
               </div>
             ) : (
               dateIndex.map(dateStr => (
-                <button key={dateStr} className={`history-card ${currentDate === dateStr ? 'active' : ''}`}
-                  onClick={() => loadByDate(dateStr)}>
-                  <Calendar size={20} className="history-icon" />
-                  <span className="history-date">{formatDateStr(dateStr)}</span>
-                  <span className="history-action">View leads →</span>
-                </button>
+                <HistoryCard key={dateStr} dateStr={dateStr} isActive={currentDate === dateStr}
+                  onClick={() => loadByDate(dateStr)} />
               ))
             )}
           </div>
