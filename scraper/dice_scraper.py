@@ -531,10 +531,16 @@ def save_json_to_github(jobs, tab_name, run_label=""):
 
     os.makedirs('public/data', exist_ok=True)
 
-    now = datetime.now()
+    # Always use Eastern Time for file naming
+    from zoneinfo import ZoneInfo
+    eastern = ZoneInfo("America/New_York")
+    now = datetime.now(eastern)
+    now_utc = datetime.now()
+
     payload = {
         "tab": tab_name,
         "scraped_at": now.isoformat(),
+        "scraped_at_eastern": now.strftime("%Y-%m-%d %I:%M %p ET"),
         "count": len(jobs),
         "run_label": run_label,
         "jobs": jobs
@@ -545,7 +551,7 @@ def save_json_to_github(jobs, tab_name, run_label=""):
         json.dump(payload, f, indent=2)
     print("✅ Wrote public/data/latest.json")
 
-    # For dated file: use timestamp to avoid overwriting standard run
+    # For dated file: use Eastern Time, add timestamp for modified runs
     if run_label:
         date_str = now.strftime("%Y-%m-%d-%H%M")  # e.g. 2026-07-08-1430
     else:
