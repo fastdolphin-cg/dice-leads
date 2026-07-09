@@ -323,7 +323,18 @@ body {
 .col-title { font-weight: 500; color: var(--white); }
 .col-company { font-weight: 500; }
 .col-location { color: var(--muted); font-size: 0.82rem; }
-.col-pay { color: var(--teal); font-weight: 500; }
+.col-rundate { white-space: nowrap; }
+.rundate-date { font-weight: 600; color: var(--white); font-size: 0.82rem; }
+.rundate-time { color: var(--teal); font-size: 0.75rem; margin-top: 2px; }
+.col-posted { color: var(--muted); font-size: 0.82rem; white-space: nowrap; }
+.clear-filters {
+  display: flex; align-items: center; gap: 5px;
+  background: rgba(224,82,82,0.15); border: 1px solid rgba(224,82,82,0.3);
+  color: var(--red); font-size: 0.78rem; font-weight: 500;
+  padding: 5px 10px; border-radius: var(--radius-sm); cursor: pointer;
+  transition: background 0.15s;
+}
+.clear-filters:hover { background: rgba(224,82,82,0.25); }
 .col-center { text-align: center; }
 .col-reason { font-size: 0.78rem; color: var(--muted); line-height: 1.5; }
 .col-link { text-align: center; vertical-align: middle; }
