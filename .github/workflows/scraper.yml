@@ -2,7 +2,7 @@ name: Daily LATAM Lead Scraper
 
 on:
   schedule:
-    - cron: '0 13 * * *'  # 8AM Eastern (UTC-5) = 13:00 UTC
+    - cron: '0 12 * * *'  # 8AM EDT (UTC-4 in summer) = 12:00 UTC
   workflow_dispatch:
     inputs:
       keywords:
