@@ -247,11 +247,15 @@ function HistoryCard({ dateStr, isActive, onClick }) {
   const displayTime = meta?.scraped_at
     ? (() => {
         try {
-          // Handle both ISO format with timezone and without
-          const dateStr = meta.scraped_at.includes('+') || meta.scraped_at.endsWith('Z')
-            ? meta.scraped_at
-            : meta.scraped_at + 'Z'; // treat as UTC if no timezone
-          const d = new Date(dateStr);
+          // Clean up the date string and try multiple approaches
+          let s = meta.scraped_at.trim();
+          // If it has timezone offset like -04:00, it's already timezone-aware
+          // If no timezone info, assume Eastern
+          let d = new Date(s);
+          if (isNaN(d.getTime())) {
+            // Try adding Z to treat as UTC
+            d = new Date(s + 'Z');
+          }
           if (isNaN(d.getTime())) return '';
           return d.toLocaleTimeString('en-US', {
             hour: 'numeric', minute: '2-digit',
@@ -648,7 +652,17 @@ export default function App() {
   }
 
   const formattedScrapedAt = scrapedAt
-    ? new Date(scrapedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    ? (() => {
+        try {
+          const d = new Date(scrapedAt);
+          if (isNaN(d.getTime())) return '';
+          return d.toLocaleString('en-US', {
+            month: 'short', day: 'numeric',
+            hour: 'numeric', minute: '2-digit',
+            timeZone: 'America/New_York', timeZoneName: 'short'
+          });
+        } catch (_) { return ''; }
+      })()
     : '';
 
   if (!user) return <LoginScreen onLogin={email => setUser(email)} />;
