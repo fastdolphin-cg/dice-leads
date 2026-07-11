@@ -1,8 +1,25 @@
 {
-  "scraped_at": "2026-07-10T17:06:17.083802-04:00",
-  "scraped_at_eastern": "2026-07-10 05:06 PM ET",
-  "count": 12,
+  "scraped_at": "2026-07-11T09:39:18.960040-04:00",
+  "scraped_at_eastern": "2026-07-11 09:39 AM ET",
+  "count": 13,
   "jobs": [
+    {
+      "Job Title": "IT Infrastructure Project Management (Spanish Bilingual)",
+      "Company": "Digitive LLC",
+      "Recruiter": "",
+      "Location": "Sunnyvale, California",
+      "Employment Type": "Contract W2, No Travel Required, Depends on Experience, Infrastructure, Project Management, IT Facilities, Structured Cabling, LAN, WAN, MDF, IDF, Audio Visual, PMP, Create job alert",
+      "Work Type": "On-site",
+      "Corp to Corp": "Contract Corp To Corp",
+      "Contract Duration": "12 Months",
+      "Pay": "",
+      "Posted Date": "14 hours ago \u2022 Updated 14 hours ago",
+      "Keyword": "spanish",
+      "AI Reason": "The job title explicitly requires 'Spanish Bilingual' as a job requirement, which indicates Spanish language proficiency is a necessary qualification for the role.",
+      "Run Date": "2026-07-11",
+      "Run Time": "09:20 AM ET",
+      "Job URL": "https://www.dice.com/job-detail/674d7cc9-7a08-49a6-bdcb-1245dd581dd2"
+    },
     {
       "Job Title": "Linux Administrator II (Nearshore Mexico)",
       "Company": "Kforce Technology Staffing",
