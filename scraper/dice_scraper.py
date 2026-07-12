@@ -495,24 +495,20 @@ def write_to_sheets(new_jobs, run_date_str):
     posted_col_idx = HEADERS.index("Posted Date")
     existing_urls = set(row[url_col_idx] for row in existing_rows if len(row) > url_col_idx)
 
-    # Filter out jobs older than 30 days and deduplicate
+    # Filter out jobs older than 30 days based on RUN DATE (when we scraped it)
+    # This is reliable — we control it. Posted Date from Dice is unreliable.
     cutoff = datetime.now().date() - timedelta(days=MAX_DAYS)
     kept_rows = []
     removed = 0
     for row in existing_rows:
-        if len(row) <= posted_col_idx:
+        run_date_str_row = row[run_date_col_idx] if len(row) > run_date_col_idx else ""
+        try:
+            run_date = datetime.fromisoformat(run_date_str_row).date()
+        except:
+            # If we can't parse run date, keep the job to be safe
             kept_rows.append(row)
             continue
-        posted_str = row[posted_col_idx] if len(row) > posted_col_idx else ""
-        run_date_str_row = row[run_date_col_idx] if len(row) > run_date_col_idx else ""
-        posted_date = parse_posted_date(posted_str)
-        if posted_date is None:
-            # Use run date for Unknown
-            try:
-                posted_date = datetime.fromisoformat(run_date_str_row).date()
-            except:
-                posted_date = datetime.now().date()
-        if posted_date < cutoff:
+        if run_date < cutoff:
             removed += 1
             continue
         kept_rows.append(row)
