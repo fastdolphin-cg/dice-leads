@@ -72,4 +72,5 @@ jobs:
           SCRAPER_AI_MODEL: ${{ github.event.inputs.ai_model }}
           SCRAPER_SEND_EMAIL: ${{ github.event.inputs.send_email }}
           SCRAPER_RUN_LABEL: ${{ github.event.inputs.run_label }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python scraper/dice_scraper.py
