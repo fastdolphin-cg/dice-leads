@@ -301,8 +301,17 @@ body {
 }
 .export-btn:hover { background: rgba(255,255,255,0.05); border-color: var(--muted); }
 .table-wrap { overflow-x: auto; }
-.table-wrap { overflow-x: auto; width: 100%; }
+.table-wrap { overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch; }
 .leads-table { width: 100%; min-width: 1600px; border-collapse: collapse; font-size: 0.84rem; table-layout: fixed; }
+/* Pin the link column to the right */
+.leads-table th:last-child,
+.leads-table td:last-child {
+  position: sticky;
+  right: 0;
+  background: var(--navy-mid);
+  z-index: 1;
+  box-shadow: -2px 0 4px rgba(0,0,0,0.2);
+}
 .leads-table thead tr { background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border); }
 .leads-table th {
   padding: 11px 10px; text-align: left;
