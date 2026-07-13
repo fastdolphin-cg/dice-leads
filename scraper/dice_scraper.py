@@ -567,8 +567,6 @@ def save_json_to_github(all_jobs, run_date_str, run_time_str):
         json.dump(payload, f, indent=2)
     print("✅ Wrote public/data/latest.json")
 
-    subprocess.run(['git', 'config', 'user.email', 'scraper@fastdolphin.com'], check=True)
-    subprocess.run(['git', 'config', 'user.name', 'Fast Dolphin Scraper'], check=True)
     subprocess.run(['git', 'add', 'public/data/'], check=True)
     result = subprocess.run(
         ['git', 'commit', '-m', f'Data: {run_date_str} {run_time_str} ({len(all_jobs)} jobs)'],
