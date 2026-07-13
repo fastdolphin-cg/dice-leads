@@ -43,6 +43,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.email "scraper@fastdolphin.com"
+          git config user.name "Fast Dolphin Scraper"
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/fastdolphin-cg/dice-leads.git
 
       - name: Set up Python
         uses: actions/setup-python@v5
