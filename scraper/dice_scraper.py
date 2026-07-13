@@ -569,8 +569,6 @@ def save_json_to_github(all_jobs, run_date_str, run_time_str):
 
     subprocess.run(['git', 'config', 'user.email', 'scraper@fastdolphin.com'], check=True)
     subprocess.run(['git', 'config', 'user.name', 'Fast Dolphin Scraper'], check=True)
-    # Pull latest changes first to avoid push rejection
-    subprocess.run(['git', 'pull', '--rebase', 'origin', 'main'], check=True)
     subprocess.run(['git', 'add', 'public/data/'], check=True)
     result = subprocess.run(
         ['git', 'commit', '-m', f'Data: {run_date_str} {run_time_str} ({len(all_jobs)} jobs)'],
@@ -578,28 +576,6 @@ def save_json_to_github(all_jobs, run_date_str, run_time_str):
     )
     if result.returncode == 0:
         subprocess.run(['git', 'push', 'origin', 'main'], check=True)
-        # Trigger GitHub Pages redeploy so app picks up new data
-        try:
-            import urllib.request
-            gh_token = os.environ.get("GITHUB_TOKEN", "")
-            if not gh_token:
-                # Use GITHUB_TOKEN from Actions environment
-                gh_token = subprocess.run(
-                    ['git', 'config', '--get', 'http.https://github.com/.extraheader'],
-                    capture_output=True, text=True
-                ).stdout.strip()
-            req = urllib.request.Request(
-                'https://api.github.com/repos/fastdolphin-cg/dice-leads/pages/builds',
-                method='POST',
-                headers={
-                    'Authorization': f'Bearer {os.environ.get("GITHUB_TOKEN", "")}',
-                    'Accept': 'application/vnd.github+json',
-                }
-            )
-            urllib.request.urlopen(req)
-            print("✅ GitHub Pages rebuild triggered")
-        except Exception as e:
-            print(f"ℹ️ Could not trigger Pages rebuild: {e}")
         print("✅ Data pushed to GitHub")
     else:
         print("ℹ️ Nothing to commit")
