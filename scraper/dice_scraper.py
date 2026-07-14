@@ -512,16 +512,14 @@ def write_to_sheets(new_jobs, run_date_str):
     # Read existing data
     existing_data = ws.get_all_values()
 
-    if existing_data and existing_data[0] == HEADERS:
+    # Accept header row even if it has fewer columns (e.g. before FD Notes was added)
+    if existing_data and existing_data[0][:len(existing_data[0])] == HEADERS[:len(existing_data[0])]:
+        existing_rows = existing_data[1:]
+    elif existing_data and existing_data[0][0] == "Job Title":
+        # Header exists but may differ — still use existing rows
         existing_rows = existing_data[1:]
     else:
         existing_rows = []
-        # Write headers
-        ws.clear()
-        ws.append_row(HEADERS)
-        ws.format("A1:O1", {"textFormat": {"bold": True}})
-        # Add filters to header row
-        ws.set_basic_filter()
 
     # Get existing URLs for dedup
     url_col_idx = HEADERS.index("Job URL")
@@ -531,12 +529,16 @@ def write_to_sheets(new_jobs, run_date_str):
     existing_urls = set(row[url_col_idx] for row in existing_rows if len(row) > url_col_idx)
 
     # Filter out jobs older than 30 days based on RUN DATE (when we scraped it)
-    # This is reliable — we control it. Posted Date from Dice is unreliable.
+    # Use the actual header row from the sheet to find the right column index
+    # This is safe even if columns are added/reordered
     cutoff = datetime.now().date() - timedelta(days=MAX_DAYS)
     kept_rows = []
     removed = 0
     for row in existing_rows:
-        run_date_str_row = row[run_date_col_idx] if len(row) > run_date_col_idx else ""
+        # Safely get run date using the index we already calculated
+        # But pad the row first to avoid index errors
+        padded = row + [""] * (len(HEADERS) - len(row))
+        run_date_str_row = padded[run_date_col_idx]
         try:
             run_date = datetime.fromisoformat(run_date_str_row).date()
         except:
