@@ -22,13 +22,13 @@ DEFAULT_KEYWORDS = [
     "latin america", "maquiladora", "chile", "bolivia", "peru",
 ]
 
-DEFAULT_EMPLOYMENT_TYPES = "CONTRACTS|THIRD_PARTY|CONTRACT_INDEPENDENT"
+DEFAULT_EMPLOYMENT_TYPES = "CONTRACTS|THIRD_PARTY"
 DEFAULT_DATE_RANGE = 2
 
 MAX_PAGES = 5
 SHEET_ID = "14Gjeh1TiJTIq0IhhAA0cKumraUy1Q0d99hmbhI1AtV8"
 SHEET_TAB = "Dice Leads"
-MAX_DAYS = 30  # Remove jobs with posted date older than 30 days
+MAX_DAYS = 30
 
 GMAIL_USER = os.environ["GMAIL_USER"]
 GMAIL_APP_PASSWORD = os.environ["GMAIL_APP_PASSWORD"]
@@ -192,7 +192,6 @@ def safe_text(driver, selector):
         return ""
 
 def extract_posted_date(driver):
-    """Try multiple selectors to find posted date on job detail page."""
     selectors = [
         "li[data-cy='posted-date']",
         "[data-testid='posted-date']",
@@ -207,14 +206,11 @@ def extract_posted_date(driver):
             text = el.text.strip()
             if text:
                 return text
-            # Try datetime attribute
             dt = el.get_attribute("datetime")
             if dt:
                 return dt
         except:
             continue
-
-    # Last resort: search page text for "Posted" patterns
     try:
         body = driver.find_element(By.TAG_NAME, "body").text
         import re
@@ -230,8 +226,46 @@ def extract_posted_date(driver):
                 return m.group(1).strip()
     except:
         pass
-
     return "Unknown"
+
+def extract_description(driver):
+    """Extract job description with retries."""
+    description = ""
+    for attempt in range(3):
+        try:
+            desc_el = driver.find_element(By.CSS_SELECTOR, "div.job-description")
+            description = desc_el.text.strip()
+            if len(description) > 100:
+                break
+        except:
+            pass
+        if attempt < 2:
+            time.sleep(2)
+            for sel in ["div.job-description", "[data-testid='jobDescriptionHtml']",
+                       "div[class*='description']", "section[class*='description']"]:
+                try:
+                    el = driver.find_element(By.CSS_SELECTOR, sel)
+                    text = el.text.strip()
+                    if len(text) > 100:
+                        description = text
+                        break
+                except:
+                    continue
+        if len(description) > 100:
+            break
+
+    # Fallback: use skills tags
+    if len(description) < 100:
+        try:
+            skills_els = driver.find_elements(By.CSS_SELECTOR, "div.skill-tag, span.skill, [data-testid='skill']")
+            skills = [s.text.strip() for s in skills_els if s.text.strip()]
+            if skills:
+                description = f"Skills required: {', '.join(skills)}."
+                print(f"  ⚠️ Used skills fallback: {', '.join(skills[:5])}")
+        except:
+            pass
+
+    return description
 
 def extract_badges(driver):
     emp_types = []
@@ -324,6 +358,7 @@ def scrape_all():
                             })
 
                     if not page_jobs:
+                        print(f"  ⚠️ No results on page {page}, stopping.")
                         break
 
                     print(f"  🔗 Found {len(page_jobs)} cards")
@@ -332,10 +367,6 @@ def scrape_all():
                         if info["url"] in seen_urls:
                             continue
                         seen_urls.add(info["url"])
-
-                        if "job-detail" not in info["url"]:
-                            jobs.append(build_basic_row(info, keyword, run_date_str, run_time_str))
-                            continue
 
                         try:
                             driver.get(info["url"])
@@ -349,58 +380,18 @@ def scrape_all():
                             company = safe_text(driver, "a[data-cy='companyNameLink']") or info["company"]
                             recruiter = safe_text(driver, "p[data-testid='recruiterName']")
                             posted_date = extract_posted_date(driver)
+                            description = extract_description(driver)
 
-                            description = ""
-                            # Try up to 3 times with increasing wait to handle JS rendering
-                            for attempt in range(3):
-                                try:
-                                    desc_el = driver.find_element(By.CSS_SELECTOR, "div.job-description")
-                                    description = desc_el.text.strip()
-                                    if len(description) > 100:
-                                        break
-                                except:
-                                    pass
-                                if attempt < 2:
-                                    time.sleep(2)  # Wait longer for JS to render
-                                    try:
-                                        # Also try alternative selectors
-                                        for sel in ["div.job-description", "[data-testid='jobDescriptionHtml']", "div[class*='description']", "section[class*='description']"]:
-                                            try:
-                                                el = driver.find_element(By.CSS_SELECTOR, sel)
-                                                text = el.text.strip()
-                                                if len(text) > 100:
-                                                    description = text
-                                                    break
-                                            except:
-                                                continue
-                                    except:
-                                        pass
-                                if len(description) > 100:
-                                    break
-                            
-                            # Last resort: use page title + skills as context for AI
-                            if len(description) < 100:
-                                try:
-                                    skills_els = driver.find_elements(By.CSS_SELECTOR, "div.skill-tag, span.skill, [data-testid='skill']")
-                                    skills = [s.text.strip() for s in skills_els if s.text.strip()]
-                                    if skills:
-                                        description = f"Job Title: {title}. Skills required: {', '.join(skills)}. Location: {location}."
-                                        print(f"  ⚠️ Used skills fallback: {', '.join(skills[:5])}")
-                                except:
-                                    pass
-                            
                             print(f"  📝 Description length: {len(description)} chars")
 
-                            # ── AI FILTER ──────────────────────────────────
                             ai_checked += 1
                             is_genuine, reason = ai_filter_job(
                                 title, company, location, keyword, description
                             )
                             if not is_genuine:
                                 ai_rejected += 1
-                                print(f"  ❌ Rejected: {title[:50]}")
+                                print(f"  ❌ Rejected: {title[:50]} | Posted: {posted_date}")
                                 continue
-                            # ───────────────────────────────────────────────
 
                             emp_types, pay, work_type, corp, duration = extract_badges(driver)
 
@@ -420,11 +411,12 @@ def scrape_all():
                                 "Run Date": run_date_str,
                                 "Run Time": run_time_str,
                                 "Job URL": info["url"],
+                                "FD Notes": "",
                             })
                             print(f"  ✅ Kept: {title[:60]} | Posted: {posted_date}")
 
                         except Exception as e:
-                            print(f"  ⚠️ Error: {e}")
+                            print(f"  ⚠️ Error on {info['title'][:40]}: {e}")
                             continue
 
                         smart_pause(1, 2)
@@ -440,58 +432,12 @@ def scrape_all():
     return jobs, run_date_str, run_time_str
 
 
-def build_basic_row(info, keyword, run_date_str, run_time_str):
-    return {
-        "Job Title": info["title"], "Company": info["company"],
-        "Recruiter": "", "Location": info["location"],
-        "Employment Type": "", "Work Type": "", "Corp to Corp": "",
-        "Contract Duration": "", "Pay": "", "Posted Date": "Unknown",
-        "Keyword": keyword, "AI Reason": "", "Run Date": run_date_str,
-        "Run Time": run_time_str, "Job URL": info["url"],
-    }
-
-
 # ─── Google Sheets ────────────────────────────────────────────────────────────
 HEADERS = [
     "Job Title", "Company", "Recruiter", "Location", "Employment Type",
     "Work Type", "Corp to Corp", "Contract Duration", "Pay",
     "Posted Date", "Keyword", "AI Reason", "Run Date", "Run Time", "Job URL", "FD Notes"
 ]
-
-def parse_posted_date(posted_str):
-    """Try to parse a posted date string into a date object."""
-    from datetime import date
-    import re
-    if not posted_str or posted_str == "Unknown":
-        return None
-    try:
-        # ISO format
-        return datetime.fromisoformat(posted_str).date()
-    except:
-        pass
-    today = date.today()
-    s = posted_str.lower().strip()
-    # "X days ago"
-    m = re.search(r'(\d+)\s+days?\s+ago', s)
-    if m:
-        return today - timedelta(days=int(m.group(1)))
-    # "X hours ago"
-    m = re.search(r'(\d+)\s+hours?\s+ago', s)
-    if m:
-        return today
-    # "today"
-    if 'today' in s:
-        return today
-    # "yesterday"
-    if 'yesterday' in s:
-        return today - timedelta(days=1)
-    # Try dateutil
-    try:
-        from dateutil import parser as dateparser
-        return dateparser.parse(posted_str).date()
-    except:
-        pass
-    return None
 
 def write_to_sheets(new_jobs, run_date_str):
     creds_dict = json.loads(os.environ["GOOGLE_CREDENTIALS"])
@@ -503,57 +449,61 @@ def write_to_sheets(new_jobs, run_date_str):
     gc = gspread.authorize(creds)
     sh = gc.open_by_key(SHEET_ID)
 
-    # Get or create the single "Dice Leads" tab
     try:
         ws = sh.worksheet(SHEET_TAB)
     except:
         ws = sh.add_worksheet(title=SHEET_TAB, rows="2000", cols="20")
 
-    # Read existing data
     existing_data = ws.get_all_values()
 
-    # Accept header row even if it has fewer columns (e.g. before FD Notes was added)
-    if existing_data and existing_data[0][:len(existing_data[0])] == HEADERS[:len(existing_data[0])]:
+    # Read existing rows — flexible header matching
+    if existing_data and len(existing_data[0]) > 0 and existing_data[0][0] == "Job Title":
         existing_rows = existing_data[1:]
-    elif existing_data and existing_data[0][0] == "Job Title":
-        # Header exists but may differ — still use existing rows
-        existing_rows = existing_data[1:]
+        existing_headers = existing_data[0]
     else:
         existing_rows = []
+        existing_headers = HEADERS
+
+    # Find column indices from EXISTING headers (safe against column changes)
+    def col_idx(headers, name, default):
+        try:
+            return headers.index(name)
+        except:
+            return default
+
+    url_col_idx = col_idx(existing_headers, "Job URL", 14)
+    run_date_col_idx = col_idx(existing_headers, "Run Date", 12)
 
     # Get existing URLs for dedup
-    url_col_idx = HEADERS.index("Job URL")
-    run_date_col_idx = HEADERS.index("Run Date")
-    posted_col_idx = HEADERS.index("Posted Date")
-    fd_notes_idx = HEADERS.index("FD Notes")
-    existing_urls = set(row[url_col_idx] for row in existing_rows if len(row) > url_col_idx)
+    existing_urls = set()
+    for row in existing_rows:
+        if len(row) > url_col_idx:
+            existing_urls.add(row[url_col_idx])
 
-    # Filter out jobs older than 30 days based on RUN DATE (when we scraped it)
-    # Use the actual header row from the sheet to find the right column index
-    # This is safe even if columns are added/reordered
+    # 30-day cleanup based on Run Date
     cutoff = datetime.now().date() - timedelta(days=MAX_DAYS)
     kept_rows = []
     removed = 0
     for row in existing_rows:
-        # Safely get run date using the index we already calculated
-        # But pad the row first to avoid index errors
-        padded = row + [""] * (len(HEADERS) - len(row))
-        run_date_str_row = padded[run_date_col_idx]
+        # Pad row to avoid index errors
+        padded = row + [""] * max(0, len(HEADERS) - len(row))
+        run_date_val = padded[run_date_col_idx] if run_date_col_idx < len(padded) else ""
         try:
-            run_date = datetime.fromisoformat(run_date_str_row).date()
+            run_date = datetime.fromisoformat(run_date_val).date()
+            if run_date < cutoff:
+                removed += 1
+                continue
         except:
-            # If we can't parse run date, keep the job to be safe
-            kept_rows.append(row)
-            continue
-        if run_date < cutoff:
-            removed += 1
-            continue
+            pass  # Keep rows with unparseable dates
+        # Ensure row has FD Notes column
+        while len(row) < len(HEADERS):
+            row.append("")
         kept_rows.append(row)
 
     if removed > 0:
         print(f"🗑️ Removed {removed} jobs older than {MAX_DAYS} days")
 
-    # Add new jobs (dedup against existing)
+    # Add new jobs (dedup)
     added = 0
     new_rows = []
     for job in new_jobs:
@@ -561,28 +511,19 @@ def write_to_sheets(new_jobs, run_date_str):
             print(f"  ⏭️ Duplicate skipped: {job['Job Title'][:50]}")
             continue
         existing_urls.add(job["Job URL"])
-        row = [job.get(h, "") for h in HEADERS]
-        new_rows.append(row)
+        new_rows.append([job.get(h, "") for h in HEADERS])
         added += 1
 
-    # Ensure existing rows have enough columns (pad with empty FD Notes if needed)
-    padded_kept_rows = []
-    for row in kept_rows:
-        while len(row) < len(HEADERS):
-            row.append("")
-        padded_kept_rows.append(row)
+    print(f"✅ Adding {added} new jobs, keeping {len(kept_rows)} existing")
 
-    print(f"✅ Adding {added} new jobs, keeping {len(padded_kept_rows)} existing")
-
-    # Rebuild sheet: new jobs first, then existing (FD Notes preserved in existing rows)
-    all_rows = new_rows + padded_kept_rows
+    # Rebuild sheet: new jobs first, then existing
+    all_rows = new_rows + kept_rows
 
     ws.clear()
     ws.append_row(HEADERS)
     if all_rows:
         ws.append_rows(all_rows, value_input_option='RAW')
 
-    # Format header and add filters
     ws.format("A1:P1", {"textFormat": {"bold": True}})
     ws.set_basic_filter()
 
@@ -592,7 +533,6 @@ def write_to_sheets(new_jobs, run_date_str):
 
 # ─── Save JSON to GitHub ──────────────────────────────────────────────────────
 def save_json_to_github(all_jobs, run_date_str, run_time_str):
-    import glob
     import subprocess
     from zoneinfo import ZoneInfo
 
@@ -652,15 +592,15 @@ def send_email(new_count, total_count, run_date_str, run_time_str):
         </div>
       </div>
       <p style="color: #555;">Each lead reviewed by AI to confirm genuine LATAM relevance.</p>
-      <div style="text-align: center; margin: 24px 0; display: flex; gap: 12px; justify-content: center;">
-        <a href="{SHEET_URL}" style="background: #1B6CF2; color: white; padding: 14px 24px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block;">
+      <div style="text-align: center; margin: 24px 0;">
+        <a href="{SHEET_URL}" style="background: #1B6CF2; color: white; padding: 14px 24px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block; margin-right: 12px;">
           📊 Open Google Sheet
         </a>
         <a href="{APP_URL}" style="background: #0A1628; color: white; padding: 14px 24px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block; border: 1px solid #1B6CF2;">
           🐬 Open Lead Finder App
         </a>
       </div>
-      <p style="color: #999; font-size: 12px;">Filtered for: Mexico · Brazil · Colombia · Argentina · Chile · LATAM · Spanish · and more<br>Employment: Contract, Third Party & Contract Independent · Posted last {DEFAULT_DATE_RANGE} days · AI-verified</p>
+      <p style="color: #999; font-size: 12px;">Filtered for: Mexico · Brazil · Colombia · Argentina · Chile · LATAM · Spanish · and more<br>Employment: Contract & Third Party · Posted last {DEFAULT_DATE_RANGE} days · AI-verified</p>
     </div>
     <div style="background: #f9f9f9; padding: 16px 32px; text-align: center; border-top: 1px solid #eee;">
       <p style="color: #aaa; font-size: 12px; margin: 0;">Fast Dolphin Consulting Group · Internal use only</p>
@@ -698,12 +638,9 @@ if __name__ == "__main__":
     added_count, total_count = write_to_sheets(new_jobs, run_date_str)
 
     print("\nSaving JSON to GitHub...")
-    # For the app, we need ALL jobs from the sheet
-    # Re-read from sheet to get the full cumulative list
     creds_dict = json.loads(os.environ["GOOGLE_CREDENTIALS"])
     scopes = ["https://www.googleapis.com/auth/spreadsheets"]
-    creds = Credentials.from_service_account_info(
-        creds_dict, scopes=scopes)
+    creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     gc = gspread.authorize(creds)
     sh = gc.open_by_key(SHEET_ID)
     ws = sh.worksheet(SHEET_TAB)
