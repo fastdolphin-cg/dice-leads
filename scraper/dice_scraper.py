@@ -320,14 +320,19 @@ def scrape_all():
                     smart_pause(3, 5)
 
                     try:
-                        WebDriverWait(driver, 15).until(
-                            EC.presence_of_element_located((By.CSS_SELECTOR, 'div[role="listitem"]'))
+                        WebDriverWait(driver, 20).until(
+                            EC.presence_of_element_located((By.CSS_SELECTOR, 'a[data-testid="job-search-job-detail-link"]'))
                         )
                     except:
                         print(f"  ⚠️ No results on page {page}, stopping.")
                         break
 
-                    cards = driver.find_elements(By.CSS_SELECTOR, 'div[role="listitem"]')
+                    # Try multiple selectors for job cards
+                    cards = []
+                    for card_sel in ['div[role="listitem"]', 'div.card', 'article', 'div[data-testid="job-card"]', 'li[data-testid]']:
+                        cards = driver.find_elements(By.CSS_SELECTOR, card_sel)
+                        if len(cards) > 2:
+                            break
                     if not cards:
                         break
 
