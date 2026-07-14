@@ -455,7 +455,7 @@ def build_basic_row(info, keyword, run_date_str, run_time_str):
 HEADERS = [
     "Job Title", "Company", "Recruiter", "Location", "Employment Type",
     "Work Type", "Corp to Corp", "Contract Duration", "Pay",
-    "Posted Date", "Keyword", "AI Reason", "Run Date", "Run Time", "Job URL"
+    "Posted Date", "Keyword", "AI Reason", "Run Date", "Run Time", "Job URL", "FD Notes"
 ]
 
 def parse_posted_date(posted_str):
@@ -527,6 +527,7 @@ def write_to_sheets(new_jobs, run_date_str):
     url_col_idx = HEADERS.index("Job URL")
     run_date_col_idx = HEADERS.index("Run Date")
     posted_col_idx = HEADERS.index("Posted Date")
+    fd_notes_idx = HEADERS.index("FD Notes")
     existing_urls = set(row[url_col_idx] for row in existing_rows if len(row) > url_col_idx)
 
     # Filter out jobs older than 30 days based on RUN DATE (when we scraped it)
@@ -558,13 +559,21 @@ def write_to_sheets(new_jobs, run_date_str):
             print(f"  ⏭️ Duplicate skipped: {job['Job Title'][:50]}")
             continue
         existing_urls.add(job["Job URL"])
-        new_rows.append([job.get(h, "") for h in HEADERS])
+        row = [job.get(h, "") for h in HEADERS]
+        new_rows.append(row)
         added += 1
 
-    print(f"✅ Adding {added} new jobs, keeping {len(kept_rows)} existing")
+    # Ensure existing rows have enough columns (pad with empty FD Notes if needed)
+    padded_kept_rows = []
+    for row in kept_rows:
+        while len(row) < len(HEADERS):
+            row.append("")
+        padded_kept_rows.append(row)
 
-    # Rebuild sheet: new jobs first, then existing
-    all_rows = new_rows + kept_rows
+    print(f"✅ Adding {added} new jobs, keeping {len(padded_kept_rows)} existing")
+
+    # Rebuild sheet: new jobs first, then existing (FD Notes preserved in existing rows)
+    all_rows = new_rows + padded_kept_rows
 
     ws.clear()
     ws.append_row(HEADERS)
@@ -572,7 +581,7 @@ def write_to_sheets(new_jobs, run_date_str):
         ws.append_rows(all_rows, value_input_option='RAW')
 
     # Format header and add filters
-    ws.format("A1:O1", {"textFormat": {"bold": True}})
+    ws.format("A1:P1", {"textFormat": {"bold": True}})
     ws.set_basic_filter()
 
     print(f"✅ Sheet '{SHEET_TAB}' updated: {len(all_rows)} total jobs")
