@@ -351,11 +351,45 @@ def scrape_all():
                             posted_date = extract_posted_date(driver)
 
                             description = ""
-                            try:
-                                desc_el = driver.find_element(By.CSS_SELECTOR, "div.job-description")
-                                description = desc_el.text
-                            except:
-                                pass
+                            # Try up to 3 times with increasing wait to handle JS rendering
+                            for attempt in range(3):
+                                try:
+                                    desc_el = driver.find_element(By.CSS_SELECTOR, "div.job-description")
+                                    description = desc_el.text.strip()
+                                    if len(description) > 100:
+                                        break
+                                except:
+                                    pass
+                                if attempt < 2:
+                                    time.sleep(2)  # Wait longer for JS to render
+                                    try:
+                                        # Also try alternative selectors
+                                        for sel in ["div.job-description", "[data-testid='jobDescriptionHtml']", "div[class*='description']", "section[class*='description']"]:
+                                            try:
+                                                el = driver.find_element(By.CSS_SELECTOR, sel)
+                                                text = el.text.strip()
+                                                if len(text) > 100:
+                                                    description = text
+                                                    break
+                                            except:
+                                                continue
+                                    except:
+                                        pass
+                                if len(description) > 100:
+                                    break
+                            
+                            # Last resort: use page title + skills as context for AI
+                            if len(description) < 100:
+                                try:
+                                    skills_els = driver.find_elements(By.CSS_SELECTOR, "div.skill-tag, span.skill, [data-testid='skill']")
+                                    skills = [s.text.strip() for s in skills_els if s.text.strip()]
+                                    if skills:
+                                        description = f"Job Title: {title}. Skills required: {', '.join(skills)}. Location: {location}."
+                                        print(f"  ⚠️ Used skills fallback: {', '.join(skills[:5])}")
+                                except:
+                                    pass
+                            
+                            print(f"  📝 Description length: {len(description)} chars")
 
                             # ── AI FILTER ──────────────────────────────────
                             ai_checked += 1
