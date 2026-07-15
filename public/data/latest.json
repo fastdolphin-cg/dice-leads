@@ -1,8 +1,26 @@
 {
-  "scraped_at": "2026-07-15T09:58:05.356281-04:00",
-  "scraped_at_eastern": "2026-07-15 09:58 AM ET",
-  "count": 1,
+  "scraped_at": "2026-07-15T16:44:24.049484-04:00",
+  "scraped_at_eastern": "2026-07-15 04:44 PM ET",
+  "count": 2,
   "jobs": [
+    {
+      "Job Title": "IVR & Cyara Automation Tester",
+      "Company": "HAN IT Staffing Inc.",
+      "Recruiter": "",
+      "Location": "Hybrid in Coppell, Texas",
+      "Employment Type": "Contract Independent, Contract W2, 2 Years, No Travel Required, Cyara, IVR, Testing, QA, Tester, CTI, Contact the job poster, Create job alert",
+      "Work Type": "Hybrid",
+      "Corp to Corp": "",
+      "Contract Duration": "",
+      "Pay": "$60 - $65/hr",
+      "Posted Date": "28 days ago \u2022 Updated 1 hour ago",
+      "Keyword": "spanish",
+      "AI Reason": "The job explicitly requires '5+ years of English and Spanish IVR testing experience' as a mandatory qualification, making Spanish language skills a core job requirement rather than a mere company location mention.",
+      "Run Date": "2026-07-15",
+      "Run Time": "04:30 PM ET",
+      "Job URL": "https://www.dice.com/job-detail/c4bd663d-ed92-4f72-b2db-894dda928e3a",
+      "FD Notes": ""
+    },
     {
       "Job Title": "SAP Organizational Change Management (OCM) Consultant",
       "Company": "Spadtek Solutions LLC",
@@ -19,7 +37,7 @@
       "Run Date": "2026-07-15",
       "Run Time": "09:44 AM ET",
       "Job URL": "https://www.dice.com/job-detail/90ddb09f-ee0d-45d0-81e2-a5b8d94768da",
-      "FD Notes": ""
+      "FD Notes": "Contacted"
     }
   ]
 }
