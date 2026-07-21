@@ -1,8 +1,26 @@
 {
-  "scraped_at": "2026-07-21T10:03:04.666127-04:00",
-  "scraped_at_eastern": "2026-07-21 10:03 AM ET",
-  "count": 13,
+  "scraped_at": "2026-07-21T16:53:22.158266-04:00",
+  "scraped_at_eastern": "2026-07-21 04:53 PM ET",
+  "count": 14,
   "jobs": [
+    {
+      "Job Title": "Senior Manager International Accounting",
+      "Company": "TSR Consulting Services, Inc.",
+      "Recruiter": "",
+      "Location": "New York, New York",
+      "Employment Type": "Contract W2, Senior Manager International Accounting, Contact the job poster, Create job alert",
+      "Work Type": "On-site",
+      "Corp to Corp": "",
+      "Contract Duration": "",
+      "Pay": "$80 - $83.34 per hour",
+      "Posted Date": "5 days ago \u2022 Updated 31 minutes ago",
+      "Keyword": "argentina",
+      "AI Reason": "The job description explicitly requires testing Fusion functionality for 'Argentina hyperinflation and FX vs Non-FX requirements' as part of the core job responsibilities, making Argentina a genuine job requirement rather than just a company office location.",
+      "Run Date": "2026-07-21",
+      "Run Time": "04:41 PM ET",
+      "Job URL": "https://www.dice.com/job-detail/3efb0f4f-89ea-4f44-be97-5690d888559a",
+      "FD Notes": ""
+    },
     {
       "Job Title": "Full Stack Developer - React/Node/PHP - Nearshore (Ecuador), Remote",
       "Company": "Connect Tech+Talent",
