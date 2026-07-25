@@ -1,8 +1,27 @@
 {
-  "scraped_at": "2026-07-25T10:01:44.597841-04:00",
-  "scraped_at_eastern": "2026-07-25 10:01 AM ET",
-  "count": 76,
+  "scraped_at": "2026-07-25T17:01:47.199857-04:00",
+  "scraped_at_eastern": "2026-07-25 05:01 PM ET",
+  "count": 77,
   "jobs": [
+    {
+      "Job Title": "Customer Service Representative/CSR(English/Spanish)",
+      "Company": "",
+      "Recruiter": "",
+      "Location": "Houston, Texas \u2022 Yesterday",
+      "Employment Type": "Contract W2, Customer Service, Customer Support, Call Center Operations, Contact Center, Inbound Calls, Outbound Calls, Customer Care, Customer Relations, Client Services, Billing Inquiries, Account Management, Payment Processing, Account Resolution, Contact the job poster, Create job alert",
+      "Work Type": "On-site",
+      "Corp to Corp": "",
+      "Contract Duration": "12 Months",
+      "Pay": "$15 - $19/hr",
+      "Posted Date": "5 days ago \u2022 Updated 1 day ago",
+      "Keyword": "spanish",
+      "AI Reason": "The job title explicitly states 'Customer Service Representative/CSR(English/Spanish)' which indicates Spanish language is a required qualification for this position, meeting the criterion of language requirements.",
+      "Run Date": "2026-07-25",
+      "Run Time": "04:26 PM ET",
+      "Job URL": "https://www.dice.com/job-detail/374cdbad-8499-4b6a-bfeb-3a384e8c25c5",
+      "FD Notes": "",
+      "": ""
+    },
     {
       "Job Title": "ETL Manager",
       "Company": "",
