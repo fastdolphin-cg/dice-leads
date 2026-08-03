@@ -1,8 +1,160 @@
 {
-  "scraped_at": "2026-08-03T11:17:39.663090-04:00",
-  "scraped_at_eastern": "2026-08-03 11:17 AM ET",
-  "count": 113,
+  "scraped_at": "2026-08-03T17:17:50.476962-04:00",
+  "scraped_at_eastern": "2026-08-03 05:17 PM ET",
+  "count": 121,
   "jobs": [
+    {
+      "Job Title": "Need - Call Center Customer Service Representative",
+      "Company": "",
+      "Recruiter": "",
+      "Location": "Cincinnati, Ohio \u2022 Today",
+      "Employment Type": "Contract W2, Contract Independent, No Travel Required, Banking, Call Center, Communication, Conflict Resolution, Customer Experience, Customer Service, English, Spanish, Problem Solving, Documentation, Productivity, Contact the job poster, Create job alert",
+      "Work Type": "On-site",
+      "Corp to Corp": "",
+      "Contract Duration": "6 Months",
+      "Pay": "$17 - $18/hr",
+      "Posted Date": "2 hours ago \u2022 Updated 2 hours ago",
+      "Keyword": "spanish",
+      "AI Reason": "The job explicitly requires candidates to 'Communicate fluently in English and Spanish' as a key responsibility, which is a genuine language skill requirement for the position.",
+      "Run Date": "2026-08-03",
+      "Run Time": "04:41 PM ET",
+      "Job URL": "https://www.dice.com/job-detail/feca8c49-2030-43da-b3d3-cf69395a4454",
+      "FD Notes": "",
+      "": ""
+    },
+    {
+      "Job Title": "Business Center PC Associate",
+      "Company": "",
+      "Recruiter": "",
+      "Location": "Fulton, Maryland \u2022 Today",
+      "Employment Type": "Contract W2, $20 - $20 hourly, Bilingual, Printing, Customer Facing, Phone Support, JAM, Inventory, Repair, Break/Fix, Customer Service, Printers, Fluency, English, Spanish, Artificial Intelligence, Messaging, Create job alert",
+      "Work Type": "On-site",
+      "Corp to Corp": "",
+      "Contract Duration": "",
+      "Pay": "",
+      "Posted Date": "4 hours ago \u2022 Updated 1 hour ago",
+      "Keyword": "spanish",
+      "AI Reason": "The job explicitly requires 'Fluent in both English and Spanish' as a key requirement, which is a language skill requirement that qualifies as a genuine Latin America connection per the guidelines.",
+      "Run Date": "2026-08-03",
+      "Run Time": "04:41 PM ET",
+      "Job URL": "https://www.dice.com/job-detail/a81953a2-21eb-492d-8d53-f5cbc60699b5",
+      "FD Notes": "",
+      "": ""
+    },
+    {
+      "Job Title": "AEM Content Editor",
+      "Company": "",
+      "Recruiter": "",
+      "Location": "Remote \u2022 Today",
+      "Employment Type": "Contract W2, Contract Independent, No Travel Required, Depends on Experience, AEM, Content, Editor, Multisite Launches, AEM Page, Create job alert",
+      "Work Type": "Remote",
+      "Corp to Corp": "Contract Corp To Corp",
+      "Contract Duration": "12 Months",
+      "Pay": "",
+      "Posted Date": "4 hours ago \u2022 Updated 4 hours ago",
+      "Keyword": "spanish",
+      "AI Reason": "The job description explicitly states 'Experience supporting related English and Spanish webpages is a plus' which indicates Spanish language skills are relevant to the actual job requirements and candidate qualifications.",
+      "Run Date": "2026-08-03",
+      "Run Time": "04:41 PM ET",
+      "Job URL": "https://www.dice.com/job-detail/d4e49447-a916-4774-b44d-0354c9a4c740",
+      "FD Notes": "",
+      "": ""
+    },
+    {
+      "Job Title": "Help Desk Specialist",
+      "Company": "",
+      "Recruiter": "",
+      "Location": "Miami, Florida \u2022 Today",
+      "Employment Type": "Contract Independent, Contract W2, No Travel Required, Depends on Experience, Access Control, Active Directory, Antivirus, CompTIA, Computer Hardware, Cloud Computing, Computer Networking, Backup, DNS, IT Security, Endpoint Protection, Firewall, Help Desk, Linux, Microsoft Windows, Microsoft Azure, JIRA, Mobile Device Management, Contact the job poster, Create job alert",
+      "Work Type": "On-site",
+      "Corp to Corp": "",
+      "Contract Duration": "12 Months",
+      "Pay": "",
+      "Posted Date": "4 hours ago \u2022 Updated 4 hours ago",
+      "Keyword": "spanish",
+      "AI Reason": "The job explicitly requires 'English & Spanish' as a language qualification in the Required Skills & Qualifications section, making bilingual Spanish language proficiency a core job requirement.",
+      "Run Date": "2026-08-03",
+      "Run Time": "04:41 PM ET",
+      "Job URL": "https://www.dice.com/job-detail/cd60d70d-4334-4c3c-8628-11e3b7e68519",
+      "FD Notes": "",
+      "": ""
+    },
+    {
+      "Job Title": "Help Desk Specialist / IT Support Technician- Bilingual- Spanish / English",
+      "Company": "",
+      "Recruiter": "",
+      "Location": "Miami, Florida \u2022 Today",
+      "Employment Type": "Contract W2, Contract Independent, Able to Sponsor, Depends on Experience, Help desk, Contact the job poster, Create job alert",
+      "Work Type": "On-site",
+      "Corp to Corp": "Contract Corp To Corp",
+      "Contract Duration": "12 Months",
+      "Pay": "",
+      "Posted Date": "60+ days ago \u2022 Updated 3 hours ago",
+      "Keyword": "spanish",
+      "AI Reason": "The job explicitly requires 'English & Spanish' as a language qualification in the Required Skills & Qualifications section, which is a genuine job requirement for the candidate, not just a company location mention.",
+      "Run Date": "2026-08-03",
+      "Run Time": "04:41 PM ET",
+      "Job URL": "https://www.dice.com/job-detail/67345f61-def8-4439-abc5-9404b9e3d43c",
+      "FD Notes": "",
+      "": ""
+    },
+    {
+      "Job Title": "Performance Engineer",
+      "Company": "",
+      "Recruiter": "",
+      "Location": "Santa Clara, California \u2022 Today",
+      "Employment Type": "Contract W2, Contract Independent, Depends on Experience, GPU, pNFS/NFS, VAST, DDN, WEKA, Contact the job poster, Create job alert",
+      "Work Type": "On-site",
+      "Corp to Corp": "",
+      "Contract Duration": "6 Months",
+      "Pay": "",
+      "Posted Date": "5 hours ago \u2022 Updated 5 hours ago",
+      "Keyword": "costa rica",
+      "AI Reason": "The job posting explicitly states 'Highly desired in Santa Clara, CA, or Costa Rica (Lower Cost Center Preferred)' in the Preferred Location section, making Costa Rica a candidate work location option for this position, which qualifies as a genuine Latin America connection in job requirements.",
+      "Run Date": "2026-08-03",
+      "Run Time": "04:41 PM ET",
+      "Job URL": "https://www.dice.com/job-detail/d79a7093-c2de-48bb-a93c-f92b9fcd710f",
+      "FD Notes": "",
+      "": ""
+    },
+    {
+      "Job Title": "System Test Engineer",
+      "Company": "",
+      "Recruiter": "",
+      "Location": "Santa Clara, California \u2022 Today",
+      "Employment Type": "Contract Independent, Contract W2, Depends on Experience, gRPC/TCP, CI/CD, Python, Shell, Jenkins, Contact the job poster, Create job alert",
+      "Work Type": "On-site",
+      "Corp to Corp": "",
+      "Contract Duration": "12 Months",
+      "Pay": "",
+      "Posted Date": "5 hours ago \u2022 Updated 5 hours ago",
+      "Keyword": "costa rica",
+      "AI Reason": "The job posting explicitly states 'Highly desired in Santa Clara, CA, or Costa Rica (Lower Cost Center Preferred)' in the Preferred Location section, indicating that Costa Rica is an acceptable work location for the candidate, which qualifies as a genuine Latin America connection in job requirements.",
+      "Run Date": "2026-08-03",
+      "Run Time": "04:41 PM ET",
+      "Job URL": "https://www.dice.com/job-detail/366d9b1f-858b-452f-8884-875e2b6c7b50",
+      "FD Notes": "",
+      "": ""
+    },
+    {
+      "Job Title": "Collections Analyst II",
+      "Company": "",
+      "Recruiter": "",
+      "Location": "Toronto, Ontario \u2022 Today",
+      "Employment Type": "Contract Independent, Contract W2, 1 Year, No Travel Required, Adaptability, Augmented Reality, Billing, Collaboration, Collections, Communication, Conflict Resolution, Due Diligence, English, Finance, Fluency, Invoices, Leadership, Management, Mentorship, Microsoft Excel, Military, Portuguese, Problem Solving, Contact the job poster, Create job alert",
+      "Work Type": "On-site",
+      "Corp to Corp": "",
+      "Contract Duration": "",
+      "Pay": "$20 - $30/hr",
+      "Posted Date": "1 hour ago \u2022 Updated 1 hour ago",
+      "Keyword": "portuguese",
+      "AI Reason": "The job explicitly requires 'professional-level fluency in Portuguese' as a mandatory language skill, which is a genuine job requirement that directly qualifies as a Latin America connection.",
+      "Run Date": "2026-08-03",
+      "Run Time": "04:41 PM ET",
+      "Job URL": "https://www.dice.com/job-detail/404445a6-1979-4da9-9eee-d779e7f8aaf4",
+      "FD Notes": "",
+      "": ""
+    },
     {
       "Job Title": "QA Engineer (Bi-lingual Spanish)",
       "Company": "",
@@ -19,7 +171,7 @@
       "Run Date": "2026-08-03",
       "Run Time": "10:40 AM ET",
       "Job URL": "https://www.dice.com/job-detail/f09989c2-8410-41ed-a828-954a03c6725e",
-      "FD Notes": "",
+      "FD Notes": "Contacted",
       "": ""
     },
     {
@@ -38,8 +190,8 @@
       "Run Date": "2026-08-03",
       "Run Time": "10:40 AM ET",
       "Job URL": "https://www.dice.com/job-detail/332d9b16-3c02-4f44-9df0-422a81cf0cc4",
-      "FD Notes": "",
-      "": ""
+      "FD Notes": "N/A",
+      "": "duplicate"
     },
     {
       "Job Title": "Oracle EBS WMS Functional Lead consultant",
@@ -57,7 +209,7 @@
       "Run Date": "2026-08-01",
       "Run Time": "09:22 AM ET",
       "Job URL": "https://www.dice.com/job-detail/b2f71b81-8cea-462e-b89c-2671307fc3ee",
-      "FD Notes": "",
+      "FD Notes": "Sent to BDM",
       "": ""
     },
     {
@@ -76,12 +228,12 @@
       "Run Date": "2026-08-01",
       "Run Time": "09:22 AM ET",
       "Job URL": "https://www.dice.com/job-detail/e94dae9d-4237-4e51-ae0b-4ac42b375ac1",
-      "FD Notes": "",
-      "": ""
+      "FD Notes": "N/A",
+      "": "duplicate"
     },
     {
       "Job Title": "Salesforce Change Manager (Spanish & English Speaking)",
-      "Company": "",
+      "Company": "1 Point System",
       "Recruiter": "",
       "Location": "Remote or Hybrid in St. Louis, Missouri \u2022 Today",
       "Employment Type": "Contract W2, No Travel Required, Depends on Experience, Salesforce, spanish, change management, Contact the job poster, Create job alert",
@@ -95,7 +247,7 @@
       "Run Date": "2026-07-31",
       "Run Time": "10:08 AM ET",
       "Job URL": "https://www.dice.com/job-detail/21502680-ec14-4ca4-abd7-f11cba121067",
-      "FD Notes": "",
+      "FD Notes": "Contacted",
       "": ""
     },
     {
@@ -114,7 +266,7 @@
       "Run Date": "2026-07-31",
       "Run Time": "10:08 AM ET",
       "Job URL": "https://www.dice.com/job-detail/979aa912-62ff-486a-b87d-379a2112ad7a",
-      "FD Notes": "",
+      "FD Notes": "N/A",
       "": ""
     },
     {
@@ -133,7 +285,7 @@
       "Run Date": "2026-07-31",
       "Run Time": "10:08 AM ET",
       "Job URL": "https://www.dice.com/job-detail/0664ecc5-ecbc-4c30-830c-77b365a1884a",
-      "FD Notes": "",
+      "FD Notes": "N/A",
       "": ""
     },
     {
@@ -152,7 +304,7 @@
       "Run Date": "2026-07-31",
       "Run Time": "10:08 AM ET",
       "Job URL": "https://www.dice.com/job-detail/0f6d1b1c-c48b-4885-b4f6-9a0b9f18e9f0",
-      "FD Notes": "",
+      "FD Notes": "N/A",
       "": ""
     },
     {
@@ -171,8 +323,8 @@
       "Run Date": "2026-07-31",
       "Run Time": "10:08 AM ET",
       "Job URL": "https://www.dice.com/job-detail/7134701d-bb0e-41e2-81a0-9f0ad14fb939",
-      "FD Notes": "",
-      "": ""
+      "FD Notes": "N/A",
+      "": "duplicate"
     },
     {
       "Job Title": "Bilingual Onsite Technical Specialist & Sales Representative",
@@ -190,7 +342,7 @@
       "Run Date": "2026-07-31",
       "Run Time": "10:08 AM ET",
       "Job URL": "https://www.dice.com/job-detail/97e770a1-c4a4-4914-a86c-5248f66eefdc",
-      "FD Notes": "",
+      "FD Notes": "N/A",
       "": ""
     },
     {
@@ -209,7 +361,7 @@
       "Run Date": "2026-07-31",
       "Run Time": "10:08 AM ET",
       "Job URL": "https://www.dice.com/job-detail/78f29834-a5df-48d1-8b1d-d049fee8d60a",
-      "FD Notes": "",
+      "FD Notes": "Sent to BDM",
       "": ""
     },
     {
