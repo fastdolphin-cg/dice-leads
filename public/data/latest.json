@@ -1,8 +1,65 @@
 {
-  "scraped_at": "2026-08-03T17:17:50.476962-04:00",
-  "scraped_at_eastern": "2026-08-03 05:17 PM ET",
-  "count": 121,
+  "scraped_at": "2026-08-04T10:47:52.624707-04:00",
+  "scraped_at_eastern": "2026-08-04 10:47 AM ET",
+  "count": 124,
   "jobs": [
+    {
+      "Job Title": "Product Manager -Spanish",
+      "Company": "",
+      "Recruiter": "",
+      "Location": "Remote \u2022 Today",
+      "Employment Type": "Contract Independent, Contract W2, No Travel Required, Depends on Experience, Product Manager, Supply Chain, LATAM, Contact the job poster, Create job alert",
+      "Work Type": "Remote",
+      "Corp to Corp": "",
+      "Contract Duration": "12 Months",
+      "Pay": "",
+      "Posted Date": "24 minutes ago \u2022 Updated 24 minutes ago",
+      "Keyword": "spanish",
+      "AI Reason": "The job explicitly requires 'full professional fluency in Spanish' as a core job requirement, and the role is to 'drive product initiatives across our LATAM markets' with direct engagement of LATAM stakeholders and suppliers on Spanish-language calls, making this a genuine Latin America connection tied to actual job requirements and candidate qualifications.",
+      "Run Date": "2026-08-04",
+      "Run Time": "10:12 AM ET",
+      "Job URL": "https://www.dice.com/job-detail/c829647a-4731-4c35-866c-577f1b784e80",
+      "FD Notes": "",
+      "": ""
+    },
+    {
+      "Job Title": "Product Manager",
+      "Company": "",
+      "Recruiter": "",
+      "Location": "Remote \u2022 Today",
+      "Employment Type": "Contract W2, product Manager, Create job alert",
+      "Work Type": "Remote",
+      "Corp to Corp": "",
+      "Contract Duration": "",
+      "Pay": "",
+      "Posted Date": "58 minutes ago \u2022 Updated 43 minutes ago",
+      "Keyword": "spanish",
+      "AI Reason": "The job explicitly requires 'full professional fluency in Spanish' as a core candidate requirement and states the role is to 'drive product initiatives across our LATAM markets' with 'daily collaboration with LATAM stakeholders and suppliers' and 'supplier calls conducted in Spanish where needed,' making the Latin America connection and Spanish language requirement integral to the actual job responsibilities, not merely a company location mention.",
+      "Run Date": "2026-08-04",
+      "Run Time": "10:12 AM ET",
+      "Job URL": "https://www.dice.com/job-detail/adf0708d-46b0-4eac-acba-b33ba2f7f6ed",
+      "FD Notes": "",
+      "": ""
+    },
+    {
+      "Job Title": "Project (Information Systems) Mgr 3/IT Facilities & Infrastructure Project Manager",
+      "Company": "",
+      "Recruiter": "",
+      "Location": "Sunnyvale, California \u2022 Today",
+      "Employment Type": "Contract W2, No Travel Required, Excellent communication, stakeholder management, and executive-level reporting skills., Ability to work in a fast-paced, regulated environment, focus on consistency, standardization, and compliance, Strong understanding of Vendor & Budget management, collaboration and teamwork, Create job alert",
+      "Work Type": "On-site",
+      "Corp to Corp": "Contract Corp To Corp",
+      "Contract Duration": "12 Months",
+      "Pay": "$88 - $88/hr",
+      "Posted Date": "16 hours ago \u2022 Updated 16 hours ago",
+      "Keyword": "spanish",
+      "AI Reason": "The job description explicitly requires 'excellent communication skills in Spanish and English' as part of the ideal candidate qualifications, which is a genuine language requirement for the position itself.",
+      "Run Date": "2026-08-04",
+      "Run Time": "10:12 AM ET",
+      "Job URL": "https://www.dice.com/job-detail/c68bc03e-c537-4bc7-ad12-8c2c80c09a3b",
+      "FD Notes": "",
+      "": ""
+    },
     {
       "Job Title": "Need - Call Center Customer Service Representative",
       "Company": "",
@@ -19,7 +76,7 @@
       "Run Date": "2026-08-03",
       "Run Time": "04:41 PM ET",
       "Job URL": "https://www.dice.com/job-detail/feca8c49-2030-43da-b3d3-cf69395a4454",
-      "FD Notes": "",
+      "FD Notes": "N/A",
       "": ""
     },
     {
@@ -38,7 +95,7 @@
       "Run Date": "2026-08-03",
       "Run Time": "04:41 PM ET",
       "Job URL": "https://www.dice.com/job-detail/a81953a2-21eb-492d-8d53-f5cbc60699b5",
-      "FD Notes": "",
+      "FD Notes": "N/A",
       "": ""
     },
     {
@@ -57,7 +114,7 @@
       "Run Date": "2026-08-03",
       "Run Time": "04:41 PM ET",
       "Job URL": "https://www.dice.com/job-detail/d4e49447-a916-4774-b44d-0354c9a4c740",
-      "FD Notes": "",
+      "FD Notes": "N/A",
       "": ""
     },
     {
@@ -76,7 +133,7 @@
       "Run Date": "2026-08-03",
       "Run Time": "04:41 PM ET",
       "Job URL": "https://www.dice.com/job-detail/cd60d70d-4334-4c3c-8628-11e3b7e68519",
-      "FD Notes": "",
+      "FD Notes": "N/A",
       "": ""
     },
     {
@@ -95,12 +152,12 @@
       "Run Date": "2026-08-03",
       "Run Time": "04:41 PM ET",
       "Job URL": "https://www.dice.com/job-detail/67345f61-def8-4439-abc5-9404b9e3d43c",
-      "FD Notes": "",
+      "FD Notes": "N/A",
       "": ""
     },
     {
       "Job Title": "Performance Engineer",
-      "Company": "",
+      "Company": "Aziro Technologies LLC",
       "Recruiter": "",
       "Location": "Santa Clara, California \u2022 Today",
       "Employment Type": "Contract W2, Contract Independent, Depends on Experience, GPU, pNFS/NFS, VAST, DDN, WEKA, Contact the job poster, Create job alert",
@@ -114,12 +171,12 @@
       "Run Date": "2026-08-03",
       "Run Time": "04:41 PM ET",
       "Job URL": "https://www.dice.com/job-detail/d79a7093-c2de-48bb-a93c-f92b9fcd710f",
-      "FD Notes": "",
+      "FD Notes": "Contacted",
       "": ""
     },
     {
       "Job Title": "System Test Engineer",
-      "Company": "",
+      "Company": "Aziro Technologies LLC",
       "Recruiter": "",
       "Location": "Santa Clara, California \u2022 Today",
       "Employment Type": "Contract Independent, Contract W2, Depends on Experience, gRPC/TCP, CI/CD, Python, Shell, Jenkins, Contact the job poster, Create job alert",
@@ -133,7 +190,7 @@
       "Run Date": "2026-08-03",
       "Run Time": "04:41 PM ET",
       "Job URL": "https://www.dice.com/job-detail/366d9b1f-858b-452f-8884-875e2b6c7b50",
-      "FD Notes": "",
+      "FD Notes": "Contacted",
       "": ""
     },
     {
@@ -152,7 +209,7 @@
       "Run Date": "2026-08-03",
       "Run Time": "04:41 PM ET",
       "Job URL": "https://www.dice.com/job-detail/404445a6-1979-4da9-9eee-d779e7f8aaf4",
-      "FD Notes": "",
+      "FD Notes": "N/A",
       "": ""
     },
     {
