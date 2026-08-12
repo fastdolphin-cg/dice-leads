@@ -1,11 +1,49 @@
 {
-  "scraped_at": "2026-08-11T16:42:19.640698-04:00",
-  "scraped_at_eastern": "2026-08-11 04:42 PM ET",
-  "count": 174,
+  "scraped_at": "2026-08-12T09:43:22.012340-04:00",
+  "scraped_at_eastern": "2026-08-12 09:43 AM ET",
+  "count": 176,
   "jobs": [
+    {
+      "Job Title": "Python Developer",
+      "Company": "",
+      "Recruiter": "",
+      "Location": "Remote \u2022 Today",
+      "Employment Type": "Contract W2, $42 - $52 per annum, Python Developer, Create job alert",
+      "Work Type": "Remote",
+      "Corp to Corp": "",
+      "Contract Duration": "",
+      "Pay": "",
+      "Posted Date": "9 hours ago \u2022 Updated 1 hour ago",
+      "Keyword": "mexico",
+      "AI Reason": "The job posting explicitly states 'Location: United States and Mexico' and mentions 'qualified nearshore candidates in Mexico may also be considered,' indicating Mexico is a potential work location for the candidate, not merely a company office location.",
+      "Run Date": "2026-08-12",
+      "Run Time": "09:10 AM ET",
+      "Job URL": "https://www.dice.com/job-detail/87e23019-e128-4181-b903-af058c530510",
+      "FD Notes": "",
+      "": ""
+    },
     {
       "Job Title": "Data Center Critical Facilities Engineer",
       "Company": "",
+      "Recruiter": "",
+      "Location": "Liberty, North Carolina \u2022 Today",
+      "Employment Type": "Contract Independent, Onboarding, Licensing Management, Server Administration, HVAC, UPS, Applicant Tracking System, Switches, Power Management, Management, Mechanical Engineering, Electrical Engineering, Incident Management, Change Management, Inventory, Documentation, Create job alert",
+      "Work Type": "On-site",
+      "Corp to Corp": "",
+      "Contract Duration": "",
+      "Pay": "USD $50.00 - 55.00 per hour",
+      "Posted Date": "13 hours ago \u2022 Updated 1 hour ago",
+      "Keyword": "mexico",
+      "AI Reason": "The job description includes 'Bilingual English/Spanish' as a nice-to-have skill, and mentions 'possible Mexico travel' as part of the job responsibilities, both indicating Latin America involvement in the actual job requirements and candidate work expectations.",
+      "Run Date": "2026-08-12",
+      "Run Time": "09:10 AM ET",
+      "Job URL": "https://www.dice.com/job-detail/5d5a3f15-b985-448a-867f-c420b227c942",
+      "FD Notes": "",
+      "": ""
+    },
+    {
+      "Job Title": "Data Center Critical Facilities Engineer",
+      "Company": "ComTec Information Systems",
       "Recruiter": "",
       "Location": "Liberty, North Carolina \u2022 Today",
       "Employment Type": "Contract W2, No Travel Required, APC DCE administration, APC ITA administration, Vertiv SiteScan administration, Configuring new monitored devices, Data Center / Critical Facilities, Electrical / MEP / Facilities, HVAC, UPS, Data Centers, Switches, Generators, Contact the job poster, Create job alert",
@@ -19,7 +57,7 @@
       "Run Date": "2026-08-11",
       "Run Time": "04:09 PM ET",
       "Job URL": "https://www.dice.com/job-detail/ba656113-7431-43da-9716-c0e7a66783ed",
-      "FD Notes": "",
+      "FD Notes": "Contacted",
       "": ""
     },
     {
@@ -38,7 +76,7 @@
       "Run Date": "2026-08-11",
       "Run Time": "04:09 PM ET",
       "Job URL": "https://www.dice.com/job-detail/38d53567-17ac-43be-a794-b1bcec1a6844",
-      "FD Notes": "",
+      "FD Notes": "Contacted",
       "": ""
     },
     {
@@ -57,12 +95,12 @@
       "Run Date": "2026-08-11",
       "Run Time": "04:09 PM ET",
       "Job URL": "https://www.dice.com/job-detail/f0bfa24a-920b-4891-b607-bf896a4ba09e",
-      "FD Notes": "",
-      "": ""
+      "FD Notes": "N/A",
+      "": "duplicate"
     },
     {
       "Job Title": "Project (Information Systems) Mgr 3/IT Facilities & Infrastructure Project Manager",
-      "Company": "",
+      "Company": "DGN Technologies",
       "Recruiter": "",
       "Location": "Sunnyvale, California \u2022 Today",
       "Employment Type": "Contract W2, No Travel Required, WAN/LAN/WLAN, Cell DAS (Distributed Antenna System), Audio Visual (AV), Firewall Upgrades, OS Patching, Smartsheet, Anaplan, Microsoft Project, Microsoft Office 365, Excel, PowerPoint, Tableau, CAD Viewer, Risk Mitigation, Decision Making, Communication, Create job alert",
@@ -76,7 +114,7 @@
       "Run Date": "2026-08-11",
       "Run Time": "04:09 PM ET",
       "Job URL": "https://www.dice.com/job-detail/0bb1546f-f0ed-4bbc-a0d3-0c8db6e3495f",
-      "FD Notes": "",
+      "FD Notes": "Contacted",
       "": ""
     },
     {
@@ -95,7 +133,7 @@
       "Run Date": "2026-08-11",
       "Run Time": "04:09 PM ET",
       "Job URL": "https://www.dice.com/job-detail/0b0420b4-16ed-40e7-b228-d76bf71c3337",
-      "FD Notes": "",
+      "FD Notes": "Sent to BDM",
       "": ""
     },
     {
@@ -114,7 +152,7 @@
       "Run Date": "2026-08-11",
       "Run Time": "09:06 AM ET",
       "Job URL": "https://www.dice.com/job-detail/6bdca3d8-03fa-4de0-a2d0-07a0a3c987d6",
-      "FD Notes": "",
+      "FD Notes": "N/A",
       "": ""
     },
     {
