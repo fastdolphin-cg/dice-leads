@@ -788,32 +788,30 @@ if __name__ == "__main__":
 
     # Check which prompts are due to run
     prompts_to_run = []
+    sh = gc.open_by_key(SHEET_ID)
+    all_tabs = [ws.title for ws in sh.worksheets()]
+
     for i, (prompt_tab, results_tab) in enumerate(PROMPT_TABS):
-        # Try to find tab with any name (in case it was renamed)
-        sh = gc.open_by_key(SHEET_ID)
-        all_tabs = [ws.title for ws in sh.worksheets()]
+        # Find actual tab name — could be renamed if consultant name was set
+        actual_prompt_tab = prompt_tab  # default
+        actual_results_tab = results_tab  # default
 
-        # Find the matching prompt tab (handle renames)
-        actual_prompt_tab = None
+        # Check if tab was renamed (e.g. "Ramon Osuna Prompt")
         for tab in all_tabs:
-            if tab.endswith("Prompt"):
-                if i == 0 and "LATAM" in tab:
+            if tab.endswith(" Prompt") and tab not in [p for p, r in PROMPT_TABS]:
+                # This is a renamed tab — check if it corresponds to this slot
+                ws_check = sh.worksheet(tab)
+                data = ws_check.get_all_values()
+                config_map = {r[0]: r[1] for r in data if len(r) >= 2}
+                # Match by checking if original tab no longer exists
+                if prompt_tab not in all_tabs:
                     actual_prompt_tab = tab
+                    actual_results_tab = tab.replace("Prompt", "Results")
                     break
-                elif i > 0:
-                    # Check if it's consultant i
-                    ws = sh.worksheet(tab)
-                    data = ws.get_all_values()
-                    config_map = {r[0]: r[1] for r in data if len(r) >= 2}
-                    # Match by position (Consultant 1-5)
-                    default_name = f"Consultant {i}"
-                    if tab in (f"Consultant {i} Prompt", prompt_tab) or \
-                       (config_map.get("Name", "") and tab == f"{config_map.get('Name', '')} Prompt"):
-                        actual_prompt_tab = tab
-                        break
 
-        if actual_prompt_tab is None:
-            actual_prompt_tab = prompt_tab
+        if actual_prompt_tab not in all_tabs:
+            print(f"⚠️  Tab not found: {actual_prompt_tab}")
+            continue
 
         config = read_prompt_config(gc, actual_prompt_tab)
         if config is None:
@@ -832,8 +830,6 @@ if __name__ == "__main__":
             print(f"⚠️  {actual_prompt_tab}: no prompt configured")
             continue
 
-        # Find matching results tab
-        actual_results_tab = actual_prompt_tab.replace("Prompt", "Results")
         if actual_results_tab not in all_tabs:
             actual_results_tab = results_tab
 
