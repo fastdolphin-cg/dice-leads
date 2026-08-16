@@ -29,7 +29,7 @@ GMAIL_USER = os.environ["GMAIL_USER"]
 GMAIL_APP_PASSWORD = os.environ["GMAIL_APP_PASSWORD"]
 MAX_DAYS = 30
 MAX_PAGES = 5
-MAX_JOBS_PER_KEYWORD = 25  # Max jobs to process per keyword per run
+MAX_RUN_MINUTES = 18  # Stop scraping after this many minutes
 DEFAULT_EMP_FILTER = "CONTRACTS%7CTHIRD_PARTY"
 
 # Tab names
@@ -516,6 +516,7 @@ def scrape_for_prompt(config, driver):
     jobs = []
     seen_urls = set()
     ai_checked = ai_rejected = 0
+    start_time = time.time()
 
     # Build date filter
     date_map = {1:"ONE", 2:"TWO", 3:"THREE", 7:"SEVEN", 14:"FOURTEEN", 30:"THIRTY"}
@@ -525,6 +526,12 @@ def scrape_for_prompt(config, driver):
     emp_filter = "%7C".join(config["emp_types"]) if config["emp_types"] else DEFAULT_EMP_FILTER
 
     for keyword in config["keywords"]:
+        # Check if we've exceeded the max run time
+        elapsed = (time.time() - start_time) / 60
+        if elapsed > MAX_RUN_MINUTES:
+            print(f"\n  ⏱️ Max run time ({MAX_RUN_MINUTES} min) reached after {elapsed:.1f} min. Stopping.")
+            break
+
         url = f"https://www.dice.com/jobs?filters.postedDate={date_filter}&filters.employmentType={emp_filter}&q={keyword.replace(' ', '+')}"
         print(f"\n  🔍 {keyword}")
 
@@ -532,10 +539,10 @@ def scrape_for_prompt(config, driver):
             page_url = f"{url}&page={page}"
             try:
                 driver.get(page_url)
-                time.sleep(random.uniform(3, 5))
+                time.sleep(random.uniform(2, 3))
 
                 try:
-                    WebDriverWait(driver, 20).until(
+                    WebDriverWait(driver, 15).until(
                         EC.presence_of_element_located(
                             (By.CSS_SELECTOR, 'a[data-testid="job-search-job-detail-link"]'))
                     )
@@ -564,7 +571,7 @@ def scrape_for_prompt(config, driver):
 
                     try:
                         driver.get(info["url"])
-                        time.sleep(random.uniform(2, 4))
+                        time.sleep(random.uniform(1, 2))
                         WebDriverWait(driver, 15).until(
                             EC.presence_of_element_located((By.TAG_NAME, "h1"))
                         )
