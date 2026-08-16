@@ -59,48 +59,19 @@ def get_sheets_client():
     return gspread.authorize(creds)
 
 def reformat_existing_prompt_tab(ws, tab_name):
-    """Apply correct formatting to an already-existing prompt tab."""
-    # Expand columns to full 26 if currently limited
-    ws.spreadsheet.batch_update({"requests": [{
-        "appendDimension": {
-            "sheetId": ws.id,
-            "dimension": "COLUMNS",
-            "length": max(0, 26 - ws.col_count)
-        }
-    }]})
-    # Header row
-    ws.format("A1:B1", {
-        "textFormat": {"bold": True, "foregroundColor": {"red": 1, "green": 1, "blue": 1}},
-        "backgroundColor": {"red": 0.13, "green": 0.29, "blue": 0.53}
-    })
-    ws.format("A2:A10", {
-        "textFormat": {"bold": True},
-        "backgroundColor": {"red": 0.85, "green": 0.90, "blue": 0.97}
-    })
-    ws.format("B2:B10", {
-        "backgroundColor": {"red": 1, "green": 1, "blue": 1}
-    })
-    # Dropdowns
-    ws.spreadsheet.batch_update({"requests": [
-        {"setDataValidation": {
-            "range": {"sheetId": ws.id, "startRowIndex": 1, "endRowIndex": 2,
-                      "startColumnIndex": 1, "endColumnIndex": 2},
-            "rule": {"condition": {"type": "ONE_OF_LIST", "values": [
-                {"userEnteredValue": "ON"}, {"userEnteredValue": "OFF"}
-            ]}, "showCustomUi": True, "strict": True}
-        }},
-        {"setDataValidation": {
-            "range": {"sheetId": ws.id, "startRowIndex": 3, "endRowIndex": 4,
-                      "startColumnIndex": 1, "endColumnIndex": 2},
-            "rule": {"condition": {"type": "ONE_OF_LIST", "values": [
-                {"userEnteredValue": "1x daily"},
-                {"userEnteredValue": "2x daily"},
-                {"userEnteredValue": "3x daily"},
-                {"userEnteredValue": "weekdays only 1x"},
-                {"userEnteredValue": "weekdays only 2x"}
-            ]}, "showCustomUi": True, "strict": True}
-        }}
-    ]})
+    """Completely rebuild an existing prompt tab with new structure."""
+    # Expand columns if needed
+    if ws.col_count < 26:
+        ws.spreadsheet.batch_update({"requests": [{
+            "appendDimension": {
+                "sheetId": ws.id,
+                "dimension": "COLUMNS",
+                "length": max(0, 26 - ws.col_count)
+            }
+        }]})
+    # Wipe and re-setup from scratch
+    ws.clear()
+    setup_prompt_tab(ws, tab_name)
     print(f"✅ Reformatted: {tab_name}")
 
 def ensure_sheet_structure(gc):
@@ -140,7 +111,16 @@ def setup_prompt_tab(ws, tab_name):
         ["Time 2", "03:30 PM ET"],
         ["Time 3", ""],
         ["Emails", ""],
+        ["Notification", "Email on completion"],
         ["Keywords", default_keywords],
+        ["Date Range", "1"],
+        ["Job Retention", "30"],
+        ["Employment Type", "(select below)"],
+        ["→ Contract W2", "TRUE"],
+        ["→ Third Party", "TRUE"],
+        ["→ Contract Independent", "FALSE"],
+        ["→ Full Time", "FALSE"],
+        ["→ Part Time", "FALSE"],
         ["Prompt", default_prompt],
     ]
     ws.update('A1', rows)
@@ -151,64 +131,75 @@ def setup_prompt_tab(ws, tab_name):
         "backgroundColor": {"red": 0.13, "green": 0.29, "blue": 0.53}
     })
     # Field labels: bold, light blue background
-    ws.format("A2:A10", {
+    ws.format("A2:A19", {
         "textFormat": {"bold": True},
         "backgroundColor": {"red": 0.85, "green": 0.90, "blue": 0.97}
     })
-    # Value column: white background
-    ws.format("B2:B10", {
-        "backgroundColor": {"red": 1, "green": 1, "blue": 1}
+    # Employment type sub-rows: slightly indented style
+    ws.format("A14:A18", {
+        "textFormat": {"bold": False, "italic": True},
+        "backgroundColor": {"red": 0.92, "green": 0.95, "blue": 0.99}
+    })
+    # Employment Type header row
+    ws.format("A13:B13", {
+        "textFormat": {"bold": True},
+        "backgroundColor": {"red": 0.75, "green": 0.85, "blue": 0.95}
     })
 
-    # Add data validation dropdowns
-    # Status: ON / OFF
-    ws.spreadsheet.batch_update({
-        "requests": [
-            {
-                "setDataValidation": {
-                    "range": {
-                        "sheetId": ws.id,
-                        "startRowIndex": 1, "endRowIndex": 2,
-                        "startColumnIndex": 1, "endColumnIndex": 2
-                    },
-                    "rule": {
-                        "condition": {
-                            "type": "ONE_OF_LIST",
-                            "values": [
-                                {"userEnteredValue": "ON"},
-                                {"userEnteredValue": "OFF"}
-                            ]
-                        },
-                        "showCustomUi": True,
-                        "strict": True
-                    }
-                }
-            },
-            {
-                "setDataValidation": {
-                    "range": {
-                        "sheetId": ws.id,
-                        "startRowIndex": 3, "endRowIndex": 4,
-                        "startColumnIndex": 1, "endColumnIndex": 2
-                    },
-                    "rule": {
-                        "condition": {
-                            "type": "ONE_OF_LIST",
-                            "values": [
-                                {"userEnteredValue": "1x daily"},
-                                {"userEnteredValue": "2x daily"},
-                                {"userEnteredValue": "3x daily"},
-                                {"userEnteredValue": "weekdays only 1x"},
-                                {"userEnteredValue": "weekdays only 2x"}
-                            ]
-                        },
-                        "showCustomUi": True,
-                        "strict": True
-                    }
-                }
-            }
-        ]
-    })
+    # Dropdowns and checkboxes
+    ws.spreadsheet.batch_update({"requests": [
+        # Status: ON/OFF dropdown
+        {"setDataValidation": {
+            "range": {"sheetId": ws.id, "startRowIndex": 1, "endRowIndex": 2,
+                      "startColumnIndex": 1, "endColumnIndex": 2},
+            "rule": {"condition": {"type": "ONE_OF_LIST", "values": [
+                {"userEnteredValue": "ON"}, {"userEnteredValue": "OFF"}
+            ]}, "showCustomUi": True, "strict": True}
+        }},
+        # Frequency dropdown
+        {"setDataValidation": {
+            "range": {"sheetId": ws.id, "startRowIndex": 3, "endRowIndex": 4,
+                      "startColumnIndex": 1, "endColumnIndex": 2},
+            "rule": {"condition": {"type": "ONE_OF_LIST", "values": [
+                {"userEnteredValue": "1x daily"},
+                {"userEnteredValue": "2x daily"},
+                {"userEnteredValue": "3x daily"},
+                {"userEnteredValue": "weekdays only 1x"},
+                {"userEnteredValue": "weekdays only 2x"}
+            ]}, "showCustomUi": True, "strict": True}
+        }},
+        # Notification dropdown
+        {"setDataValidation": {
+            "range": {"sheetId": ws.id, "startRowIndex": 8, "endRowIndex": 9,
+                      "startColumnIndex": 1, "endColumnIndex": 2},
+            "rule": {"condition": {"type": "ONE_OF_LIST", "values": [
+                {"userEnteredValue": "Email on completion"},
+                {"userEnteredValue": "No email"}
+            ]}, "showCustomUi": True, "strict": True}
+        }},
+        # Date Range dropdown (rows 1-30)
+        {"setDataValidation": {
+            "range": {"sheetId": ws.id, "startRowIndex": 10, "endRowIndex": 11,
+                      "startColumnIndex": 1, "endColumnIndex": 2},
+            "rule": {"condition": {"type": "ONE_OF_LIST", "values": [
+                {"userEnteredValue": str(i)} for i in range(1, 31)
+            ]}, "showCustomUi": True, "strict": True}
+        }},
+        # Job Retention dropdown
+        {"setDataValidation": {
+            "range": {"sheetId": ws.id, "startRowIndex": 11, "endRowIndex": 12,
+                      "startColumnIndex": 1, "endColumnIndex": 2},
+            "rule": {"condition": {"type": "ONE_OF_LIST", "values": [
+                {"userEnteredValue": str(i)} for i in [1,5,10,15,20,25,30,35,40,45]
+            ]}, "showCustomUi": True, "strict": True}
+        }},
+        # Employment Type checkboxes (rows 14-18, index 13-17)
+        {"setDataValidation": {
+            "range": {"sheetId": ws.id, "startRowIndex": 13, "endRowIndex": 18,
+                      "startColumnIndex": 1, "endColumnIndex": 2},
+            "rule": {"condition": {"type": "BOOLEAN"}, "showCustomUi": True}
+        }},
+    ]})
 
 def setup_results_tab(ws):
     """Initialize a results tab with headers."""
@@ -233,6 +224,38 @@ def read_prompt_config(gc, prompt_tab):
     if config.get("Status", "OFF").upper() != "ON":
         return None
 
+    # Employment types from checkboxes
+    emp_types = []
+    emp_map = {
+        "→ Contract W2": "CONTRACTS",
+        "→ Third Party": "THIRD_PARTY",
+        "→ Contract Independent": "CONTRACT_INDEPENDENT",
+        "→ Full Time": "FULLTIME",
+        "→ Part Time": "PARTTIME",
+    }
+    for label, code in emp_map.items():
+        val = config.get(label, "FALSE").upper()
+        if val in ("TRUE", "YES", "1"):
+            emp_types.append(code)
+    if not emp_types:
+        emp_types = ["CONTRACTS", "THIRD_PARTY"]  # default
+
+    # Date range
+    try:
+        date_range = int(config.get("Date Range", "1"))
+        date_range = max(1, min(30, date_range))
+    except:
+        date_range = 1
+
+    # Job retention
+    try:
+        job_retention = int(config.get("Job Retention", "30"))
+    except:
+        job_retention = 30
+
+    # Notification
+    send_email = config.get("Notification", "Email on completion") != "No email"
+
     return {
         "name": config.get("Name", ""),
         "frequency": config.get("Frequency", "2x daily"),
@@ -240,7 +263,11 @@ def read_prompt_config(gc, prompt_tab):
         "time2": config.get("Time 2", ""),
         "time3": config.get("Time 3", ""),
         "emails": [e.strip() for e in config.get("Emails", "").split(",") if e.strip()],
+        "send_email": send_email,
         "keywords": [k.strip() for k in config.get("Keywords", "").split(",") if k.strip()],
+        "date_range": date_range,
+        "job_retention": job_retention,
+        "emp_types": emp_types,
         "prompt": config.get("Prompt", ""),
     }
 
@@ -488,8 +515,15 @@ def scrape_for_prompt(config, driver):
     seen_urls = set()
     ai_checked = ai_rejected = 0
 
+    # Build date filter
+    date_map = {1:"ONE", 2:"TWO", 3:"THREE", 7:"SEVEN", 14:"FOURTEEN", 30:"THIRTY"}
+    date_filter = date_map.get(config["date_range"], "ONE")
+
+    # Build employment filter
+    emp_filter = "%7C".join(config["emp_types"]) if config["emp_types"] else DEFAULT_EMP_FILTER
+
     for keyword in config["keywords"]:
-        url = f"https://www.dice.com/jobs?filters.postedDate=TWO&filters.employmentType={DEFAULT_EMP_FILTER}&q={keyword.replace(' ', '+')}"
+        url = f"https://www.dice.com/jobs?filters.postedDate={date_filter}&filters.employmentType={emp_filter}&q={keyword.replace(' ', '+')}"
         print(f"\n  🔍 {keyword}")
 
         for page in range(1, MAX_PAGES + 1):
@@ -568,7 +602,7 @@ def scrape_for_prompt(config, driver):
     return jobs, run_date, run_time
 
 # ─── Write results ────────────────────────────────────────────────────────────
-def write_results(gc, results_tab, new_jobs, run_date):
+def write_results(gc, results_tab, new_jobs, run_date, job_retention=30):
     sh = gc.open_by_key(SHEET_ID)
     ws = sh.worksheet(results_tab)
 
@@ -585,8 +619,8 @@ def write_results(gc, results_tab, new_jobs, run_date):
 
     existing_urls = set(r[url_idx] for r in existing_rows if len(r) > url_idx)
 
-    # 30-day cleanup by Run Date
-    cutoff = datetime.now().date() - timedelta(days=MAX_DAYS)
+    # Cleanup by Run Date using job_retention setting
+    cutoff = datetime.now().date() - timedelta(days=job_retention)
     kept_rows = []
     for row in existing_rows:
         padded = row + [""] * max(0, len(RESULTS_HEADERS) - len(row))
@@ -795,8 +829,11 @@ if __name__ == "__main__":
                 )
 
                 jobs, run_date, run_time = scrape_for_prompt(config, driver)
-                added, total = write_results(gc, results_tab, jobs, run_date)
-                send_notification(config, results_tab, added, total, run_time)
+                added, total = write_results(gc, results_tab, jobs, run_date, config.get("job_retention", 30))
+                if config.get("send_email", True):
+                    send_notification(config, results_tab, added, total, run_time)
+                else:
+                    print(f"  📧 Email skipped (Notification = No email)")
 
         finally:
             driver.quit()
