@@ -29,7 +29,8 @@ GMAIL_USER = os.environ["GMAIL_USER"]
 GMAIL_APP_PASSWORD = os.environ["GMAIL_APP_PASSWORD"]
 MAX_DAYS = 30
 MAX_PAGES = 5
-MAX_RUN_MINUTES = 18  # Stop scraping after this many minutes
+MAX_JOBS_PER_KEYWORD = 50  # Safety limit per keyword
+MAX_RUN_MINUTES = 18
 DEFAULT_EMP_FILTER = "CONTRACTS%7CTHIRD_PARTY"
 
 # Tab names
