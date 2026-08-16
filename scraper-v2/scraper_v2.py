@@ -86,9 +86,7 @@ def ensure_sheet_structure(gc):
             setup_prompt_tab(ws, prompt_tab)
             print(f"✅ Created prompt tab: {prompt_tab}")
         else:
-            # Reformat existing tab with correct colors, widths, dropdowns
-            ws = sh.worksheet(prompt_tab)
-            reformat_existing_prompt_tab(ws, prompt_tab)
+            print(f"ℹ️  Tab exists: {prompt_tab}")
 
         # Create results tab if missing
         if results_tab not in existing:
