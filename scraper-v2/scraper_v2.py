@@ -583,15 +583,16 @@ def scrape_for_prompt(config, driver):
                             "[data-testid='location']",
                             "span[class*='location']") or info["location"]
                         company  = safe_text(driver,
+                            "a[data-wa-click='djv-job-company-profile-click']",
                             "a[data-cy='companyNameLink']",
                             "[data-testid='companyName']",
                             "a[class*='company']",
-                            "span[class*='company']",
-                            "div[class*='company']") or info["company"]
+                            "[class*='employer']") or info["company"]
                         recruiter = safe_text(driver,
                             "p[data-testid='recruiterName']",
                             "[data-testid='recruiter']",
-                            "span[class*='recruiter']")
+                            "span[class*='recruiter']",
+                            "[class*='recruiter']")
                         posted   = extract_posted_date(driver)
                         desc     = extract_description(driver)
 
