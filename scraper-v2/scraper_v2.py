@@ -29,6 +29,7 @@ GMAIL_USER = os.environ["GMAIL_USER"]
 GMAIL_APP_PASSWORD = os.environ["GMAIL_APP_PASSWORD"]
 MAX_DAYS = 30
 MAX_PAGES = 5
+MAX_JOBS_PER_KEYWORD = 25  # Max jobs to process per keyword per run
 DEFAULT_EMP_FILTER = "CONTRACTS%7CTHIRD_PARTY"
 
 # Tab names
@@ -454,12 +455,15 @@ def get_cards_from_page(driver):
         location = ""
         try:
             location = card.find_element(By.CSS_SELECTOR, 'p.text-sm.font-normal.text-zinc-600').text.strip()
+            # Clean up - take only first line if multiline
+            location = location.split('\n')[0].strip()
         except:
             pass
 
         company = ""
         try:
             company = card.find_element(By.CSS_SELECTOR, 'p.mb-0.line-clamp-2.text-sm').text.strip()
+            company = company.split('\n')[0].strip()
         except:
             pass
 
@@ -545,9 +549,17 @@ def scrape_for_prompt(config, driver):
 
                 print(f"    📄 Page {page}: {len(page_jobs)} cards")
 
+                kw_count = sum(1 for j in jobs if j["Keyword"] == keyword)
+                if kw_count >= MAX_JOBS_PER_KEYWORD:
+                    print(f"    ⚠️ Max {MAX_JOBS_PER_KEYWORD} jobs reached for '{keyword}'")
+                    break
+
                 for info in page_jobs:
                     if info["url"] in seen_urls:
                         continue
+                    kw_count = sum(1 for j in jobs if j["Keyword"] == keyword)
+                    if kw_count >= MAX_JOBS_PER_KEYWORD:
+                        break
                     seen_urls.add(info["url"])
 
                     try:
@@ -558,9 +570,20 @@ def scrape_for_prompt(config, driver):
                         )
 
                         title    = safe_text(driver, "h1") or info["title"]
-                        location = safe_text(driver, "li[data-cy='location']") or info["location"]
-                        company  = safe_text(driver, "a[data-cy='companyNameLink']") or info["company"]
-                        recruiter = safe_text(driver, "p[data-testid='recruiterName']")
+                        location = safe_text(driver,
+                            "li[data-cy='location']",
+                            "[data-testid='location']",
+                            "span[class*='location']") or info["location"]
+                        company  = safe_text(driver,
+                            "a[data-cy='companyNameLink']",
+                            "[data-testid='companyName']",
+                            "a[class*='company']",
+                            "span[class*='company']",
+                            "div[class*='company']") or info["company"]
+                        recruiter = safe_text(driver,
+                            "p[data-testid='recruiterName']",
+                            "[data-testid='recruiter']",
+                            "span[class*='recruiter']")
                         posted   = extract_posted_date(driver)
                         desc     = extract_description(driver)
 
