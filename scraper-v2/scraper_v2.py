@@ -60,6 +60,14 @@ def get_sheets_client():
 
 def reformat_existing_prompt_tab(ws, tab_name):
     """Apply correct formatting to an already-existing prompt tab."""
+    # Expand columns to full 26 if currently limited
+    ws.spreadsheet.batch_update({"requests": [{
+        "appendDimension": {
+            "sheetId": ws.id,
+            "dimension": "COLUMNS",
+            "length": max(0, 26 - ws.col_count)
+        }
+    }]})
     # Header row
     ws.format("A1:B1", {
         "textFormat": {"bold": True, "foregroundColor": {"red": 1, "green": 1, "blue": 1}},
@@ -103,7 +111,7 @@ def ensure_sheet_structure(gc):
     for prompt_tab, results_tab in PROMPT_TABS:
         # Create prompt tab if missing
         if prompt_tab not in existing:
-            ws = sh.add_worksheet(title=prompt_tab, rows=50, cols=5)
+            ws = sh.add_worksheet(title=prompt_tab, rows=1000, cols=26)
             setup_prompt_tab(ws, prompt_tab)
             print(f"✅ Created prompt tab: {prompt_tab}")
         else:
