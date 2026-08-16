@@ -116,11 +116,11 @@ def setup_prompt_tab(ws, tab_name):
         ["Date Range", "1"],
         ["Job Retention", "30"],
         ["Employment Type", "(select below)"],
-        ["→ Contract W2", "TRUE"],
-        ["→ Third Party", "TRUE"],
-        ["→ Contract Independent", "FALSE"],
-        ["→ Full Time", "FALSE"],
-        ["→ Part Time", "FALSE"],
+        ["→ Contract W2", True],
+        ["→ Third Party", True],
+        ["→ Contract Independent", False],
+        ["→ Full Time", False],
+        ["→ Part Time", False],
         ["Prompt", default_prompt],
     ]
     ws.update('A1', rows)
