@@ -58,6 +58,43 @@ def get_sheets_client():
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     return gspread.authorize(creds)
 
+def reformat_existing_prompt_tab(ws, tab_name):
+    """Apply correct formatting to an already-existing prompt tab."""
+    # Header row
+    ws.format("A1:B1", {
+        "textFormat": {"bold": True, "foregroundColor": {"red": 1, "green": 1, "blue": 1}},
+        "backgroundColor": {"red": 0.13, "green": 0.29, "blue": 0.53}
+    })
+    ws.format("A2:A10", {
+        "textFormat": {"bold": True},
+        "backgroundColor": {"red": 0.85, "green": 0.90, "blue": 0.97}
+    })
+    ws.format("B2:B10", {
+        "backgroundColor": {"red": 1, "green": 1, "blue": 1}
+    })
+    # Dropdowns
+    ws.spreadsheet.batch_update({"requests": [
+        {"setDataValidation": {
+            "range": {"sheetId": ws.id, "startRowIndex": 1, "endRowIndex": 2,
+                      "startColumnIndex": 1, "endColumnIndex": 2},
+            "rule": {"condition": {"type": "ONE_OF_LIST", "values": [
+                {"userEnteredValue": "ON"}, {"userEnteredValue": "OFF"}
+            ]}, "showCustomUi": True, "strict": True}
+        }},
+        {"setDataValidation": {
+            "range": {"sheetId": ws.id, "startRowIndex": 3, "endRowIndex": 4,
+                      "startColumnIndex": 1, "endColumnIndex": 2},
+            "rule": {"condition": {"type": "ONE_OF_LIST", "values": [
+                {"userEnteredValue": "1x daily"},
+                {"userEnteredValue": "2x daily"},
+                {"userEnteredValue": "3x daily"},
+                {"userEnteredValue": "weekdays only 1x"},
+                {"userEnteredValue": "weekdays only 2x"}
+            ]}, "showCustomUi": True, "strict": True}
+        }}
+    ]})
+    print(f"✅ Reformatted: {tab_name}")
+
 def ensure_sheet_structure(gc):
     """Make sure all 12 tabs exist with correct structure."""
     sh = gc.open_by_key(SHEET_ID)
@@ -69,6 +106,10 @@ def ensure_sheet_structure(gc):
             ws = sh.add_worksheet(title=prompt_tab, rows=50, cols=5)
             setup_prompt_tab(ws, prompt_tab)
             print(f"✅ Created prompt tab: {prompt_tab}")
+        else:
+            # Reformat existing tab with correct colors, widths, dropdowns
+            ws = sh.worksheet(prompt_tab)
+            reformat_existing_prompt_tab(ws, prompt_tab)
 
         # Create results tab if missing
         if results_tab not in existing:
@@ -95,8 +136,71 @@ def setup_prompt_tab(ws, tab_name):
         ["Prompt", default_prompt],
     ]
     ws.update('A1', rows)
-    ws.format("A1:B1", {"textFormat": {"bold": True}, "backgroundColor": {"red": 0.2, "green": 0.2, "blue": 0.4}})
-    ws.format("A2:A10", {"textFormat": {"bold": True}})
+
+    # Header row: dark background, white bold text
+    ws.format("A1:B1", {
+        "textFormat": {"bold": True, "foregroundColor": {"red": 1, "green": 1, "blue": 1}},
+        "backgroundColor": {"red": 0.13, "green": 0.29, "blue": 0.53}
+    })
+    # Field labels: bold, light blue background
+    ws.format("A2:A10", {
+        "textFormat": {"bold": True},
+        "backgroundColor": {"red": 0.85, "green": 0.90, "blue": 0.97}
+    })
+    # Value column: white background
+    ws.format("B2:B10", {
+        "backgroundColor": {"red": 1, "green": 1, "blue": 1}
+    })
+
+    # Add data validation dropdowns
+    # Status: ON / OFF
+    ws.spreadsheet.batch_update({
+        "requests": [
+            {
+                "setDataValidation": {
+                    "range": {
+                        "sheetId": ws.id,
+                        "startRowIndex": 1, "endRowIndex": 2,
+                        "startColumnIndex": 1, "endColumnIndex": 2
+                    },
+                    "rule": {
+                        "condition": {
+                            "type": "ONE_OF_LIST",
+                            "values": [
+                                {"userEnteredValue": "ON"},
+                                {"userEnteredValue": "OFF"}
+                            ]
+                        },
+                        "showCustomUi": True,
+                        "strict": True
+                    }
+                }
+            },
+            {
+                "setDataValidation": {
+                    "range": {
+                        "sheetId": ws.id,
+                        "startRowIndex": 3, "endRowIndex": 4,
+                        "startColumnIndex": 1, "endColumnIndex": 2
+                    },
+                    "rule": {
+                        "condition": {
+                            "type": "ONE_OF_LIST",
+                            "values": [
+                                {"userEnteredValue": "1x daily"},
+                                {"userEnteredValue": "2x daily"},
+                                {"userEnteredValue": "3x daily"},
+                                {"userEnteredValue": "weekdays only 1x"},
+                                {"userEnteredValue": "weekdays only 2x"}
+                            ]
+                        },
+                        "showCustomUi": True,
+                        "strict": True
+                    }
+                }
+            }
+        ]
+    })
 
 def setup_results_tab(ws):
     """Initialize a results tab with headers."""
