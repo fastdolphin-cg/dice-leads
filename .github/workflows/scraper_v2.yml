@@ -2,7 +2,7 @@ name: LATAM Lead Scraper V2
 
 on:
   schedule:
-    - cron: '*/30 * * * *'   # Every 30 minutes
+    - cron: '0 * * * *'    # Every hour
   workflow_dispatch:           # Manual trigger
 
 permissions:
