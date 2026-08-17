@@ -289,7 +289,7 @@ def is_due_to_run(config):
             )
             # Check if within 30-minute window of configured time
             diff = abs((now - configured).total_seconds())
-            if diff <= 1800:  # 30 minutes
+            if diff <= 3600:  # 60 minutes
                 return True
         except:
             continue
