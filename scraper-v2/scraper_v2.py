@@ -60,6 +60,18 @@ def get_sheets_client():
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     return gspread.authorize(creds)
 
+def with_retry(func, retries=3, delay=10):
+    """Retry a function on API errors."""
+    for attempt in range(retries):
+        try:
+            return func()
+        except Exception as e:
+            if attempt < retries - 1:
+                print(f"  ⚠️ API error (attempt {attempt+1}/{retries}): {e}. Retrying in {delay}s...")
+                time.sleep(delay)
+            else:
+                raise
+
 def reformat_existing_prompt_tab(ws, tab_name):
     """Completely rebuild an existing prompt tab with new structure."""
     # Expand columns if needed
@@ -533,6 +545,7 @@ def scrape_for_prompt(config, driver):
             print(f"\n  ⏱️ Max run time ({MAX_RUN_MINUTES} min) reached after {elapsed:.1f} min. Stopping.")
             break
 
+        # Build search URL - Dice handles multi-word keywords intelligently
         url = f"https://www.dice.com/jobs?filters.postedDate={date_filter}&filters.employmentType={emp_filter}&q={keyword.replace(' ', '+')}"
         print(f"\n  🔍 {keyword}")
 
@@ -786,7 +799,7 @@ if __name__ == "__main__":
     gc = get_sheets_client()
 
     # Ensure all tabs exist
-    ensure_sheet_structure(gc)
+    with_retry(lambda: ensure_sheet_structure(gc))
 
     # Check which prompts are due to run
     prompts_to_run = []
