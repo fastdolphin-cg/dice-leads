@@ -456,8 +456,14 @@ def write_to_sheets(new_jobs, run_date_str):
 
     try:
         ws = sh.worksheet(SHEET_TAB)
-    except:
+    except gspread.exceptions.WorksheetNotFound:
         ws = sh.add_worksheet(title=SHEET_TAB, rows="2000", cols="20")
+    except Exception:
+        time.sleep(10)
+        try:
+            ws = sh.worksheet(SHEET_TAB)
+        except gspread.exceptions.WorksheetNotFound:
+            ws = sh.add_worksheet(title=SHEET_TAB, rows="2000", cols="20")
 
     existing_data = ws.get_all_values()
 
