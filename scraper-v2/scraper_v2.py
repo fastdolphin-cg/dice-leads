@@ -848,8 +848,8 @@ if __name__ == "__main__":
         if actual_results_tab not in all_tabs:
             actual_results_tab = results_tab
 
-        prompts_to_run.append((actual_prompt_tab, actual_results_tab, config))
-        print(f"✅  {actual_prompt_tab}: DUE — {len(config['keywords'])} keywords")
+        prompts_to_run.append((prompt_tab, results_tab, config))
+        print(f"✅  {prompt_tab}: DUE — {len(config['keywords'])} keywords")
 
     if not prompts_to_run:
         print("\nNo prompts due to run at this time.")
@@ -861,11 +861,6 @@ if __name__ == "__main__":
                 print(f"\n{'='*60}")
                 print(f"Running: {prompt_tab}")
                 print(f"{'='*60}")
-
-                # Rename tabs if consultant name set
-                prompt_tab, results_tab = rename_tabs_if_needed(
-                    gc, prompt_tab, results_tab, config["name"]
-                )
 
                 jobs, run_date, run_time = scrape_for_prompt(config, driver)
                 added, total = write_results(gc, results_tab, jobs, run_date, config.get("job_retention", 30))
