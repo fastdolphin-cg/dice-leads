@@ -133,6 +133,7 @@ def setup_prompt_tab(ws, tab_name):
         ["→ Contract Independent", False],
         ["→ Full Time", False],
         ["→ Part Time", False],
+        ["Last Run", ""],
         ["Prompt", default_prompt],
     ]
     ws.update('A1', rows)
@@ -281,31 +282,56 @@ def read_prompt_config(gc, prompt_tab):
         "job_retention": job_retention,
         "emp_types": emp_types,
         "prompt": config.get("Prompt", ""),
+        "last_run": config.get("Last Run", ""),
     }
 
 def is_due_to_run(config):
-    """Check if this prompt is due to run within the current 30-min window."""
+    """Check if this prompt is due to run based on scheduled times and last run."""
     now = datetime.now(EASTERN)
-    current_time = now.strftime("%I:%M %p").lstrip("0")  # e.g. "8:00 AM"
-    
-    times = [config["time1"], config["time2"], config["time3"]]
-    times = [t for t in times if t]
 
+    times = [config["time1"], config["time2"], config["time3"]]
+    times = [t for t in times if t.strip()]
+
+    if not times:
+        return False
+
+    # Parse all scheduled times into today's datetime objects
+    scheduled_times = []
     for t in times:
         try:
-            # Parse configured time
             t_clean = t.replace(" ET", "").strip()
-            configured = datetime.strptime(t_clean, "%I:%M %p").replace(
-                year=now.year, month=now.month, day=now.day,
-                tzinfo=EASTERN
+            scheduled = datetime.strptime(t_clean, "%I:%M %p").replace(
+                year=now.year, month=now.month, day=now.day, tzinfo=EASTERN
             )
-            # Check if within 30-minute window of configured time
-            diff = abs((now - configured).total_seconds())
-            if diff <= 3600:  # 60 minutes
-                return True
+            scheduled_times.append(scheduled)
         except:
             continue
-    return False
+
+    if not scheduled_times:
+        return False
+
+    # Find the most recent scheduled time that has already passed today
+    past_times = [t for t in scheduled_times if t <= now]
+    if not past_times:
+        return False
+
+    most_recent_scheduled = max(past_times)
+
+    # Check if we already ran after this scheduled time
+    last_run_str = config.get("last_run", "").strip()
+    if last_run_str:
+        try:
+            last_run = datetime.fromisoformat(last_run_str)
+            if last_run.tzinfo is None:
+                last_run = last_run.replace(tzinfo=EASTERN)
+            # If last run was AFTER the most recent scheduled time, skip
+            if last_run >= most_recent_scheduled:
+                return False
+        except:
+            pass
+
+    # Due to run — scheduled time has passed and we haven't run since then
+    return True
 
 def rename_tabs_if_needed(gc, prompt_tab, results_tab, consultant_name):
     """Rename tabs if consultant name has changed."""
@@ -645,6 +671,21 @@ def scrape_for_prompt(config, driver):
     return jobs, run_date, run_time
 
 # ─── Write results ────────────────────────────────────────────────────────────
+def update_last_run(gc, prompt_tab):
+    """Write current timestamp to Last Run field in prompt tab."""
+    try:
+        sh = gc.open_by_key(SHEET_ID)
+        ws = sh.worksheet(prompt_tab)
+        data = ws.get_all_values()
+        for i, row in enumerate(data):
+            if row and row[0].strip() == "Last Run":
+                now_str = datetime.now(EASTERN).isoformat()
+                ws.update_cell(i + 1, 2, now_str)
+                print(f"  ✅ Updated Last Run: {now_str}")
+                return
+    except Exception as e:
+        print(f"  ⚠️ Could not update Last Run: {e}")
+
 def write_results(gc, results_tab, new_jobs, run_date, job_retention=30):
     sh = gc.open_by_key(SHEET_ID)
     ws = sh.worksheet(results_tab)
@@ -864,6 +905,7 @@ if __name__ == "__main__":
 
                 jobs, run_date, run_time = scrape_for_prompt(config, driver)
                 added, total = write_results(gc, results_tab, jobs, run_date, config.get("job_retention", 30))
+                update_last_run(gc, prompt_tab)
                 if config.get("send_email", True):
                     send_notification(config, results_tab, added, total, run_time)
                 else:
