@@ -100,6 +100,17 @@ def ensure_sheet_structure(gc):
             setup_prompt_tab(ws, prompt_tab)
             print(f"✅ Created prompt tab: {prompt_tab}")
         else:
+            # Ensure "Last Run" row exists in existing tabs
+            ws = sh.worksheet(prompt_tab)
+            data = ws.get_all_values()
+            fields = [row[0].strip() for row in data if row]
+            if "Last Run" not in fields:
+                # Find the row before "Prompt" and insert Last Run there
+                for i, row in enumerate(data):
+                    if row and row[0].strip() == "Prompt":
+                        ws.insert_row(["Last Run", ""], i + 1)
+                        print(f"✅ Added Last Run row to: {prompt_tab}")
+                        break
             print(f"ℹ️  Tab exists: {prompt_tab}")
 
         # Create results tab if missing
