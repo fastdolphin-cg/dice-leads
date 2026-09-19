@@ -26,8 +26,8 @@ import anthropic
 
 STATE_PATH = os.path.join(os.path.dirname(__file__), "state", "last_digest.json")
 
-# Add more addresses here later to expand to the team.
-RECIPIENTS = ["carlos.guerrero@fastdolphin.com","ramon.osuna@fastdolphin.com"]
+# Recipients for the daily digest. Add more addresses here to expand to the team.
+RECIPIENTS = ["carlos.guerrero@fastdolphin.com", "ramon.osuna@fastdolphin.com"]
 
 GMAIL_USER = os.environ["GMAIL_USER"]
 GMAIL_APP_PASSWORD = os.environ["GMAIL_APP_PASSWORD"]
@@ -37,6 +37,14 @@ ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
 # "claude-sonnet-4-6" if you want more nuanced writing later — the cost
 # difference for one digest a day is trivial either way.
 MODEL = "claude-haiku-4-5-20251001"
+
+# Haiku 4.5 pricing (per Anthropic's published rates, as of Sep 2026).
+# If Anthropic changes pricing later, update these constants.
+HAIKU_INPUT_PRICE_PER_MTOK = 1.00
+HAIKU_OUTPUT_PRICE_PER_MTOK = 5.00
+CACHE_READ_PRICE_PER_MTOK = 0.10
+CACHE_WRITE_PRICE_PER_MTOK = 1.25
+WEB_SEARCH_PRICE_PER_SEARCH = 0.01  # $10 per 1,000 searches
 
 # ---------------------------------------------------------------------------
 # State (avoids repeating yesterday's stories)
@@ -130,7 +138,41 @@ def call_claude(prompt):
     text_parts = [
         block.text for block in response.content if getattr(block, "type", None) == "text"
     ]
-    return "\n".join(text_parts)
+    raw_text = "\n".join(text_parts)
+    return raw_text, response.usage
+
+
+def _get(obj, key, default=0):
+    """Safely read an attribute or dict key, whichever form the SDK returns."""
+    if obj is None:
+        return default
+    if isinstance(obj, dict):
+        return obj.get(key, default) or default
+    return getattr(obj, key, default) or default
+
+
+def calculate_cost(usage):
+    """
+    Compute the exact dollar cost of this API call from the usage object
+    the API actually returned, using Anthropic's published per-token and
+    per-search rates. This is a real measurement, not an estimate.
+    """
+    input_tokens = _get(usage, "input_tokens")
+    output_tokens = _get(usage, "output_tokens")
+    cache_read = _get(usage, "cache_read_input_tokens")
+    cache_write = _get(usage, "cache_creation_input_tokens")
+
+    server_tool_use = _get(usage, "server_tool_use", None)
+    web_searches = _get(server_tool_use, "web_search_requests")
+
+    cost = (
+        (input_tokens / 1_000_000) * HAIKU_INPUT_PRICE_PER_MTOK
+        + (output_tokens / 1_000_000) * HAIKU_OUTPUT_PRICE_PER_MTOK
+        + (cache_read / 1_000_000) * CACHE_READ_PRICE_PER_MTOK
+        + (cache_write / 1_000_000) * CACHE_WRITE_PRICE_PER_MTOK
+        + (web_searches * WEB_SEARCH_PRICE_PER_SEARCH)
+    )
+    return cost
 
 
 def parse_json_response(raw_text):
@@ -188,7 +230,7 @@ def render_items(items):
     return html
 
 
-def render_html(data, et_date_str):
+def render_html(data, et_date_str, cost):
     note = data.get("note", "")
     note_html = (
         f'<p style="color:#b45309;font-size:13px;">{note}</p>' if note else ""
@@ -205,7 +247,10 @@ def render_html(data, et_date_str):
         <table style="width:100%;border-collapse:collapse;">{render_items(data.get('tech_news', []))}</table>
         <h2 style="font-size:16px;color:#1a1a1a;border-bottom:2px solid #1a1a1a;padding-bottom:6px;margin-top:24px;">IT &amp; Engineering Staffing News</h2>
         <table style="width:100%;border-collapse:collapse;">{render_items(data.get('staffing_news', []))}</table>
-        <p style="color:#aaa;font-size:11px;margin-top:24px;">Generated automatically by Fast Dolphin's news digest bot.</p>
+        <p style="color:#aaa;font-size:11px;margin-top:24px;">
+          Generated automatically by Fast Dolphin's Continuous Improvement Initiative.
+          Total cost of this run: ${cost:.4f}
+        </p>
       </div>
     </body>
     </html>
@@ -235,7 +280,9 @@ def main():
     prev_headlines = load_previous_headlines()
     prompt = build_prompt(prev_headlines, et_date_str)
 
-    raw = call_claude(prompt)
+    raw, usage = call_claude(prompt)
+    cost = calculate_cost(usage)
+    print(f"Actual API cost for this run: ${cost:.4f}")
 
     try:
         data = parse_json_response(raw)
@@ -244,7 +291,7 @@ def main():
         print("Raw response:\n", raw)
         sys.exit(1)
 
-    html_body = render_html(data, et_date_str)
+    html_body = render_html(data, et_date_str, cost)
     subject = f"Fast Dolphin's Daily News Digest \u2013 {et_date_str}"
 
     send_email(subject, html_body)
