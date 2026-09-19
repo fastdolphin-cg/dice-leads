@@ -98,7 +98,12 @@ TASK:
      matters, and the source
    - "source": the publication name
 
-Respond with ONLY valid JSON, no markdown fences, no preamble, in exactly this shape:
+Do your searching and thinking silently. Your final message must contain
+NOTHING but the JSON object itself — no preamble like "I'll search for...",
+no explanation of your process, no markdown code fences, and no citation
+tags or HTML of any kind inside the field values (plain text only).
+
+Respond with ONLY valid JSON, in exactly this shape:
 {{
   "tech_news": [
     {{"title": "...", "detail": "...", "source": "..."}}
@@ -129,10 +134,31 @@ def call_claude(prompt):
 
 
 def parse_json_response(raw_text):
-    cleaned = raw_text.strip()
-    cleaned = re.sub(r"^```(json)?", "", cleaned).strip()
-    cleaned = re.sub(r"```$", "", cleaned).strip()
-    return json.loads(cleaned)
+    """
+    Claude sometimes narrates its search process before producing the JSON
+    ("I'll search for...", "Let me look at...") and may wrap the JSON in
+    markdown code fences. Rather than assuming the JSON is the whole string,
+    isolate the outermost {...} block directly.
+    """
+    text = raw_text.strip()
+    start = text.find("{")
+    end = text.rfind("}")
+    if start == -1 or end == -1 or end < start:
+        raise ValueError("No JSON object found in Claude's response")
+    return json.loads(text[start : end + 1])
+
+
+def strip_markup(text):
+    """
+    Claude's web search sometimes embeds citation tags like
+    <cite index="37-1">...</cite> directly in the text. Strip any such
+    tags (and any other stray HTML) so the email body is clean plain text.
+    """
+    if not isinstance(text, str):
+        return text
+    text = re.sub(r"</?cite[^>]*>", "", text)
+    text = re.sub(r"<[^>]+>", "", text)  # strip any other stray HTML tags
+    return text.strip()
 
 
 # ---------------------------------------------------------------------------
@@ -142,17 +168,20 @@ def parse_json_response(raw_text):
 def render_items(items):
     html = ""
     for i, item in enumerate(items, 1):
+        title = strip_markup(item.get("title", ""))
+        detail = strip_markup(item.get("detail", ""))
+        source = strip_markup(item.get("source", ""))
         html += f"""
         <tr>
           <td style="padding:16px 0;border-bottom:1px solid #e5e5e5;">
             <div style="font-weight:600;font-size:16px;color:#1a1a1a;margin-bottom:6px;">
-              {i}. {item.get('title', '')}
+              {i}. {title}
             </div>
             <div style="font-size:14px;color:#444;line-height:1.5;">
-              {item.get('detail', '')}
+              {detail}
             </div>
             <div style="font-size:12px;color:#888;margin-top:6px;">
-              Source: {item.get('source', '')}
+              Source: {source}
             </div>
           </td>
         </tr>"""
