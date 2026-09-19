@@ -26,8 +26,8 @@ import anthropic
 
 STATE_PATH = os.path.join(os.path.dirname(__file__), "state", "last_digest.json")
 
-# For now, just Carlos. Add more addresses here later to expand to the team.
-RECIPIENTS = ["carlos.guerrero@fastdolphin.com"]
+# Add more addresses here later to expand to the team.
+RECIPIENTS = ["carlos.guerrero@fastdolphin.com","ramon.osuna@fastdolphin.com"]
 
 GMAIL_USER = os.environ["GMAIL_USER"]
 GMAIL_APP_PASSWORD = os.environ["GMAIL_APP_PASSWORD"]
