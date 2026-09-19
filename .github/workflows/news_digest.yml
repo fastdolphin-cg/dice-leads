@@ -1,0 +1,44 @@
+name: Fast Dolphin Daily News Digest
+ 
+on:
+  schedule:
+    # GitHub Actions cron runs in UTC only, and US Eastern shifts between
+    # EST/EDT twice a year. Two schedules approximate 6:00 AM ET year-round:
+    - cron: '0 10 * 3-11 *'    # ~6:00 AM EDT (UTC-4), March - November
+    - cron: '0 11 * 12,1,2 *'  # ~6:00 AM EST (UTC-5), December - February
+    # Note: within about a week of the actual DST switchover date (mid-March
+    # and early November), this can be off by an hour in either direction.
+    # Not worth over-engineering for a daily digest, but worth knowing.
+  workflow_dispatch:  # lets you trigger a manual test run from the Actions tab
+ 
+permissions:
+  contents: write  # needed to commit the updated "no-repeat" state file back
+ 
+jobs:
+  send-digest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+ 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+ 
+      - name: Install dependencies
+        run: pip install anthropic==0.116.0
+ 
+      - name: Run digest script
+        run: python news-digest/news_digest.py
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+ 
+      - name: Commit updated state file
+        run: |
+          git config user.name "news-digest-bot"
+          git config user.email "actions@github.com"
+          git add news-digest/state/last_digest.json
+          git diff --staged --quiet || git commit -m "Update digest state [skip ci]"
+          git push
+ 
