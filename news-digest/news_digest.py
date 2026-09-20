@@ -29,6 +29,10 @@ STATE_PATH = os.path.join(os.path.dirname(__file__), "state", "last_digest.json"
 # Recipients for the daily digest. Add more addresses here to expand to the team.
 RECIPIENTS = ["carlos.guerrero@fastdolphin.com", "ramon.osuna@fastdolphin.com"]
 
+# BCC recipients receive the email but are never shown in the To/Cc headers,
+# so no one else on the list can see their address.
+BCC_RECIPIENTS = ["diegoguerrerocota@gmail.com"]
+
 GMAIL_USER = os.environ["GMAIL_USER"]
 GMAIL_APP_PASSWORD = os.environ["GMAIL_APP_PASSWORD"]
 ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
@@ -262,11 +266,16 @@ def send_email(subject, html_body):
     msg["Subject"] = subject
     msg["From"] = GMAIL_USER
     msg["To"] = ", ".join(RECIPIENTS)
+    # Deliberately no "Bcc" header set — BCC addresses are passed only to the
+    # SMTP envelope below, not written into any header, so they stay hidden
+    # from everyone else on the list.
     msg.attach(MIMEText(html_body, "html"))
+
+    all_envelope_recipients = RECIPIENTS + BCC_RECIPIENTS
 
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
-        server.sendmail(GMAIL_USER, RECIPIENTS, msg.as_string())
+        server.sendmail(GMAIL_USER, all_envelope_recipients, msg.as_string())
 
 
 # ---------------------------------------------------------------------------
@@ -295,7 +304,7 @@ def main():
     subject = f"Fast Dolphin's Daily News Digest \u2013 {et_date_str}"
 
     send_email(subject, html_body)
-    print(f"Sent digest to {', '.join(RECIPIENTS)}")
+    print(f"Sent digest to {', '.join(RECIPIENTS)} (+ {len(BCC_RECIPIENTS)} bcc)")
 
     all_titles = [
         item.get("title", "")
