@@ -27,8 +27,13 @@ import anthropic
 STATE_PATH = os.path.join(os.path.dirname(__file__), "state", "last_digest.json")
 
 # Recipients for the daily digest. Add more addresses here to expand to the team.
-RECIPIENTS = ["carlos.guerrero@fastdolphin.com", "ramon.osuna@fastdolphin.com"]
-
+RECIPIENTS = [
+    "carlos.guerrero@fastdolphin.com",
+    "ramon.osuna@fastdolphin.com",
+    "marisol.acosta@fastdolphin.com",
+    "guillermo.hernandez@fastdolphin.com",
+    "daniel.riojas@fastdolphin.com",
+]
 # BCC recipients receive the email but are never shown in the To/Cc headers,
 # so no one else on the list can see their address.
 BCC_RECIPIENTS = ["diegoguerrerocota@gmail.com"]
