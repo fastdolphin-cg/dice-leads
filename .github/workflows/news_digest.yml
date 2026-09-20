@@ -3,9 +3,14 @@ name: Fast Dolphin Daily News Digest
 on:
   schedule:
     # GitHub Actions cron runs in UTC only, and US Eastern shifts between
-    # EST/EDT twice a year. Two schedules approximate 6:00 AM ET year-round:
-    - cron: '0 10 * 3-11 *'    # ~6:00 AM EDT (UTC-4), March - November
-    - cron: '0 11 * 12,1,2 *'  # ~6:00 AM EST (UTC-5), December - February
+    # EST/EDT twice a year. Two schedules approximate 6:00 AM ET year-round.
+    #
+    # Deliberately NOT set to the top of the hour (":00") — GitHub's own docs
+    # warn that scheduled workflows queue behind everyone else's ":00" jobs
+    # and can be significantly delayed at that exact minute. Using ":45"
+    # instead lands in a much less congested queue slot.
+    - cron: '37 9 * 3-11 *'    # ~5:37/6:37 AM EDT (UTC-4) depending on delay, March - November
+    - cron: '37 10 * 12,1,2 *' # ~5:37/6:37 AM EST (UTC-5) depending on delay, December - February
     # Note: within about a week of the actual DST switchover date (mid-March
     # and early November), this can be off by an hour in either direction.
     # Not worth over-engineering for a daily digest, but worth knowing.
