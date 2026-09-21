@@ -1,5 +1,5 @@
 name: Fast Dolphin Daily News Digest
- 
+
 on:
   schedule:
     # GitHub Actions cron runs in UTC only, and US Eastern shifts between
@@ -9,36 +9,41 @@ on:
     # warn that scheduled workflows queue behind everyone else's ":00" jobs
     # and can be significantly delayed at that exact minute. Using ":45"
     # instead lands in a much less congested queue slot.
-    - cron: '37 9 * 3-11 *'    # ~5:37/6:37 AM EDT (UTC-4) depending on delay, March - November
-    - cron: '37 10 * 12,1,2 *' # ~5:37/6:37 AM EST (UTC-5) depending on delay, December - February
+    - cron: '11 6 * 3-11 *'    # ~2:11 AM EDT (UTC-4) trigger, March - November
+    - cron: '11 7 * 12,1,2 *'  # ~2:11 AM EST (UTC-5) trigger, December - February
+    # Trigger deliberately set several hours before the 6 AM ET target,
+    # since observed runs have been arriving 4-5+ hours after the scheduled
+    # trigger time due to GitHub Actions queue congestion on scheduled
+    # (non-push) workflows. If delivery timing drifts again, adjust the
+    # hour further back (or forward) based on the actual observed delay.
     # Note: within about a week of the actual DST switchover date (mid-March
     # and early November), this can be off by an hour in either direction.
     # Not worth over-engineering for a daily digest, but worth knowing.
   workflow_dispatch:  # lets you trigger a manual test run from the Actions tab
- 
+
 permissions:
   contents: write  # needed to commit the updated "no-repeat" state file back
- 
+
 jobs:
   send-digest:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
- 
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
- 
+
       - name: Install dependencies
         run: pip install anthropic==0.116.0
- 
+
       - name: Run digest script
         run: python news-digest/news_digest.py
         env:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
- 
+
       - name: Commit updated state file
         run: |
           git config user.name "news-digest-bot"
@@ -46,4 +51,3 @@ jobs:
           git add news-digest/state/last_digest.json
           git diff --staged --quiet || git commit -m "Update digest state [skip ci]"
           git push
- 
