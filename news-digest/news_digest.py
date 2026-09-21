@@ -50,6 +50,11 @@ CACHE_READ_PRICE_PER_MTOK = 0.10
 CACHE_WRITE_PRICE_PER_MTOK = 1.25
 WEB_SEARCH_PRICE_PER_SEARCH = 0.01  # $10 per 1,000 searches
 
+# Always deliver exactly this many verified stories — no visible gaps.
+TECH_TARGET = 7
+STAFFING_TARGET = 3
+MAX_ATTEMPTS = 3  # safety cap so a bad day can't spiral into unbounded API calls
+
 # ---------------------------------------------------------------------------
 # State (avoids repeating yesterday's stories)
 # ---------------------------------------------------------------------------
@@ -79,8 +84,18 @@ def save_state(headlines):
 # Claude API call
 # ---------------------------------------------------------------------------
 
-def build_prompt(prev_headlines, et_date_str):
+def build_prompt(prev_headlines, et_date_str, n_tech, n_staffing, exclude_titles=None):
     prev_block = "\n".join(f"- {h}" for h in prev_headlines) or "(none)"
+
+    exclude_block = ""
+    if exclude_titles:
+        exclude_list = "\n".join(f"- {t}" for t in exclude_titles)
+        exclude_block = f"""
+
+ALSO do not use any of these stories — they've already been secured earlier in this
+same run (e.g. because an earlier candidate lacked a verifiable source and needed a
+replacement). Find genuinely different stories instead:
+{exclude_list}"""
 
     return f"""You are generating a daily news digest for Fast Dolphin, an IT/engineering staffing company.
 
@@ -89,22 +104,23 @@ TODAY'S DATE (US Eastern Time): {et_date_str}
 Search the web for news published in the last 24 hours (yesterday, US Eastern Time).
 
 TASK:
-1. Select the 7 biggest, most significant general TECHNOLOGY news stories of the day.
-   Range broadly across the tech industry — ERP/CRM, cloud services, mobile development,
-   telecom/networks, software development, AI, big data/BI, engineering (mechanical,
-   firmware/hardware, aerospace) — or any other major tech story. Prioritize genuine
-   significance and impact over sticking to any fixed category list.
+1. Select {n_tech} of the biggest, most significant general TECHNOLOGY news stories of
+   the day. Range broadly across the tech industry — ERP/CRM, cloud services, mobile
+   development, telecom/networks, software development, AI, big data/BI, engineering
+   (mechanical, firmware/hardware, aerospace) — or any other major tech story. Prioritize
+   genuine significance and impact over sticking to any fixed category list.
 
-2. Select the 3 biggest news stories specifically about IT & Engineering STAFFING —
-   hiring trends, layoffs, workforce shortages, staffing company news, market/salary
-   trends, remote work policy shifts, visa/labor policy affecting IT/engineering hiring.
+2. Select {n_staffing} of the biggest news stories specifically about IT & Engineering
+   STAFFING — hiring trends, layoffs, workforce shortages, staffing company news,
+   market/salary trends, remote work policy shifts, visa/labor policy affecting
+   IT/engineering hiring.
 
 3. Do NOT repeat any of the following headlines already covered in the previous digest,
    unless there has been a genuinely new, significant development — in that case, focus
    the summary specifically on what's new:
-{prev_block}
+{prev_block}{exclude_block}
 
-4. For each of the 10 items, write:
+4. For each item, write:
    - "title": a clear, specific headline (not generic)
    - "detail": a concise summary, no more than 300 words, covering what happened, why it
      matters, and the source
@@ -113,6 +129,12 @@ TASK:
      exact URL of the specific article you read (from your search results) — not a
      guessed or homepage URL. Include more than one entry if you drew on multiple
      articles for the same story.
+
+IMPORTANT — verifiability requirement: only include a story if you have at least one
+real, specific article URL for it from your search results. If you cannot find a
+direct URL for a story you were considering, do NOT include that story — search for
+and substitute a different story that you can properly source instead. Do not invent,
+guess, or reconstruct a plausible-looking URL under any circumstances.
 
 Do your searching and thinking silently. Your final message must contain
 NOTHING but the JSON object itself — no preamble like "I'll search for...",
@@ -129,10 +151,9 @@ Respond with ONLY valid JSON, in exactly this shape:
   ]
 }}
 
-tech_news must have 7 items, staffing_news must have 3 items. If fewer than 7 or 3
-qualifying stories exist, include as many strong ones as you can find and add a "note"
-field at the top level briefly explaining the shortfall. Do not pad with filler or
-low-relevance stories."""
+tech_news must have {n_tech} items, staffing_news must have {n_staffing} items. Every
+single item must have a real, verifiable source URL — do not pad with filler,
+low-relevance, or unsourced stories just to hit the count."""
 
 
 def call_claude(prompt):
@@ -198,6 +219,76 @@ def parse_json_response(raw_text):
     return json.loads(text[start : end + 1])
 
 
+def has_valid_source(item):
+    """An item only counts if at least one of its sources has a real URL."""
+    for s in item.get("sources", []):
+        if isinstance(s, dict) and s.get("url", "").strip().startswith("http"):
+            return True
+    return False
+
+
+def filter_unsourced(items):
+    """Keep only items that have at least one real, verifiable source URL."""
+    return [item for item in items if has_valid_source(item)]
+
+
+def gather_verified_stories(prev_headlines, et_date_str):
+    """
+    Repeatedly query Claude until we have exactly TECH_TARGET tech stories
+    and STAFFING_TARGET staffing stories, each with a real source link.
+    Unsourced candidates are silently discarded and replaced — this is an
+    internal implementation detail, invisible in the final email.
+    """
+    tech_items = []
+    staffing_items = []
+    total_cost = 0.0
+    seen_titles_lower = set()
+
+    for attempt in range(1, MAX_ATTEMPTS + 1):
+        n_tech_needed = TECH_TARGET - len(tech_items)
+        n_staffing_needed = STAFFING_TARGET - len(staffing_items)
+        if n_tech_needed <= 0 and n_staffing_needed <= 0:
+            break
+
+        # Ask for a small buffer beyond what's strictly needed, since some
+        # candidates will inevitably get filtered out for lacking a link.
+        buffer = 3 if attempt == 1 else 2
+        n_tech_request = n_tech_needed + buffer if n_tech_needed > 0 else 0
+        n_staffing_request = n_staffing_needed + (2 if attempt == 1 else 1) if n_staffing_needed > 0 else 0
+
+        exclude_titles = [item.get("title", "") for item in (tech_items + staffing_items)]
+        prompt = build_prompt(
+            prev_headlines, et_date_str, n_tech_request, n_staffing_request, exclude_titles
+        )
+
+        print(f"Attempt {attempt}: requesting {n_tech_request} tech + {n_staffing_request} staffing candidates")
+        raw, usage = call_claude(prompt)
+        total_cost += calculate_cost(usage)
+
+        try:
+            data = parse_json_response(raw)
+        except Exception as e:
+            print(f"Attempt {attempt}: failed to parse JSON ({e}), retrying if attempts remain")
+            continue
+
+        new_tech = filter_unsourced(data.get("tech_news", []))
+        new_staffing = filter_unsourced(data.get("staffing_news", []))
+
+        for item in new_tech:
+            title_key = item.get("title", "").strip().lower()
+            if title_key and title_key not in seen_titles_lower and len(tech_items) < TECH_TARGET:
+                tech_items.append(item)
+                seen_titles_lower.add(title_key)
+
+        for item in new_staffing:
+            title_key = item.get("title", "").strip().lower()
+            if title_key and title_key not in seen_titles_lower and len(staffing_items) < STAFFING_TARGET:
+                staffing_items.append(item)
+                seen_titles_lower.add(title_key)
+
+    return tech_items[:TECH_TARGET], staffing_items[:STAFFING_TARGET], total_cost
+
+
 def strip_markup(text):
     """
     Claude's web search sometimes embeds citation tags like
@@ -258,23 +349,17 @@ def render_items(items):
     return html
 
 
-def render_html(data, et_date_str, cost):
-    note = data.get("note", "")
-    note_html = (
-        f'<p style="color:#b45309;font-size:16px;">{note}</p>' if note else ""
-    )
-
+def render_html(tech_news, staffing_news, et_date_str, cost):
     return f"""
     <html>
     <body style="font-family: -apple-system, Arial, sans-serif; background:#fafafa; padding:24px;">
       <div style="max-width:680px;margin:0 auto;background:#fff;border-radius:8px;padding:28px;">
         <h1 style="font-size:26px;color:{HEADER_RED};margin-bottom:4px;">Fast Dolphin's Daily News Digest</h1>
         <p style="color:#666;font-size:15px;margin-top:0;">{et_date_str}</p>
-        {note_html}
         <h2 style="font-size:20px;color:{HEADER_RED};border-bottom:2px solid {HEADER_RED};padding-bottom:8px;">Technology News</h2>
-        <table style="width:100%;border-collapse:collapse;">{render_items(data.get('tech_news', []))}</table>
+        <table style="width:100%;border-collapse:collapse;">{render_items(tech_news)}</table>
         <h2 style="font-size:20px;color:{HEADER_RED};border-bottom:2px solid {HEADER_RED};padding-bottom:8px;margin-top:28px;">IT &amp; Engineering Staffing News</h2>
-        <table style="width:100%;border-collapse:collapse;">{render_items(data.get('staffing_news', []))}</table>
+        <table style="width:100%;border-collapse:collapse;">{render_items(staffing_news)}</table>
         <p style="color:#aaa;font-size:13px;margin-top:28px;">
           Generated automatically by Fast Dolphin's Continuous Improvement Initiative.
           Total cost of this run: ${cost:.4f}
@@ -311,29 +396,28 @@ def main():
     et_date_str = et_now.strftime("%B %d, %Y")
 
     prev_headlines = load_previous_headlines()
-    prompt = build_prompt(prev_headlines, et_date_str)
 
-    raw, usage = call_claude(prompt)
-    cost = calculate_cost(usage)
+    tech_news, staffing_news, cost = gather_verified_stories(prev_headlines, et_date_str)
+    print(f"Final count: {len(tech_news)} tech, {len(staffing_news)} staffing stories")
     print(f"Actual API cost for this run: ${cost:.4f}")
 
-    try:
-        data = parse_json_response(raw)
-    except Exception as e:
-        print("Failed to parse Claude's response as JSON:", e)
-        print("Raw response:\n", raw)
-        sys.exit(1)
+    if len(tech_news) < TECH_TARGET or len(staffing_news) < STAFFING_TARGET:
+        # This should be rare given MAX_ATTEMPTS with buffers, but if it
+        # happens, fail loudly in the Actions log rather than silently
+        # sending a short digest with no explanation anywhere.
+        print(
+            f"WARNING: could not reach target counts after {MAX_ATTEMPTS} attempts "
+            f"({len(tech_news)}/{TECH_TARGET} tech, {len(staffing_news)}/{STAFFING_TARGET} staffing). "
+            f"Sending what was verified rather than failing the run."
+        )
 
-    html_body = render_html(data, et_date_str, cost)
+    html_body = render_html(tech_news, staffing_news, et_date_str, cost)
     subject = f"Fast Dolphin's Daily News Digest \u2013 {et_date_str}"
 
     send_email(subject, html_body)
     print(f"Sent digest to {', '.join(RECIPIENTS)} (+ {len(BCC_RECIPIENTS)} bcc)")
 
-    all_titles = [
-        item.get("title", "")
-        for item in data.get("tech_news", []) + data.get("staffing_news", [])
-    ]
+    all_titles = [item.get("title", "") for item in (tech_news + staffing_news)]
     save_state(all_titles)
 
 
