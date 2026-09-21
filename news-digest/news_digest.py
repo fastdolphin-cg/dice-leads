@@ -27,16 +27,11 @@ import anthropic
 STATE_PATH = os.path.join(os.path.dirname(__file__), "state", "last_digest.json")
 
 # Recipients for the daily digest. Add more addresses here to expand to the team.
-RECIPIENTS = [
-    "carlos.guerrero@fastdolphin.com",
-    "ramon.osuna@fastdolphin.com",
-    "marisol.acosta@fastdolphin.com",
-    "guillermo.hernandez@fastdolphin.com",
-    "daniel.riojas@fastdolphin.com",
-]
+RECIPIENTS = ["carlos.guerrero@fastdolphin.com", "ramon.osuna@fastdolphin.com"]
+
 # BCC recipients receive the email but are never shown in the To/Cc headers,
 # so no one else on the list can see their address.
-BCC_RECIPIENTS = ["diegoguerrerocota@gmail.com"]
+BCC_RECIPIENTS = ["diegoguerrerocota@gmail.com", "cota_d@yahoo.com", "anna038370@gmail.com"]
 
 GMAIL_USER = os.environ["GMAIL_USER"]
 GMAIL_APP_PASSWORD = os.environ["GMAIL_APP_PASSWORD"]
@@ -113,7 +108,11 @@ TASK:
    - "title": a clear, specific headline (not generic)
    - "detail": a concise summary, no more than 300 words, covering what happened, why it
      matters, and the source
-   - "source": the publication name
+   - "sources": an array of the actual articles you used for this item, each as
+     {{"name": "Publication Name", "url": "https://exact-article-url"}}. Use the real,
+     exact URL of the specific article you read (from your search results) — not a
+     guessed or homepage URL. Include more than one entry if you drew on multiple
+     articles for the same story.
 
 Do your searching and thinking silently. Your final message must contain
 NOTHING but the JSON object itself — no preamble like "I'll search for...",
@@ -123,10 +122,10 @@ tags or HTML of any kind inside the field values (plain text only).
 Respond with ONLY valid JSON, in exactly this shape:
 {{
   "tech_news": [
-    {{"title": "...", "detail": "...", "source": "..."}}
+    {{"title": "...", "detail": "...", "sources": [{{"name": "...", "url": "..."}}]}}
   ],
   "staffing_news": [
-    {{"title": "...", "detail": "...", "source": "..."}}
+    {{"title": "...", "detail": "...", "sources": [{{"name": "...", "url": "..."}}]}}
   ]
 }}
 
@@ -216,23 +215,43 @@ def strip_markup(text):
 # Email formatting + sending
 # ---------------------------------------------------------------------------
 
+HEADER_RED = "#D32F2F"  # Fast Dolphin brand red (best-guess; adjust if you have the exact hex)
+
+
+def render_sources(sources):
+    """Render one or more source links as comma-separated <a> tags, falling
+    back to plain text if no URL was provided for a given source."""
+    if not sources:
+        return ""
+    parts = []
+    for s in sources:
+        name = strip_markup(s.get("name", "")) if isinstance(s, dict) else strip_markup(str(s))
+        url = s.get("url", "") if isinstance(s, dict) else ""
+        if url:
+            safe_url = url.replace('"', "%22")
+            parts.append(f'<a href="{safe_url}" style="color:{HEADER_RED};text-decoration:none;">{name}</a>')
+        elif name:
+            parts.append(name)
+    return ", ".join(parts)
+
+
 def render_items(items):
     html = ""
     for i, item in enumerate(items, 1):
         title = strip_markup(item.get("title", ""))
         detail = strip_markup(item.get("detail", ""))
-        source = strip_markup(item.get("source", ""))
+        sources_html = render_sources(item.get("sources", []))
         html += f"""
         <tr>
-          <td style="padding:16px 0;border-bottom:1px solid #e5e5e5;">
-            <div style="font-weight:600;font-size:16px;color:#1a1a1a;margin-bottom:6px;">
+          <td style="padding:20px 0;border-bottom:1px solid #e5e5e5;">
+            <div style="font-weight:600;font-size:20px;color:{HEADER_RED};margin-bottom:8px;">
               {i}. {title}
             </div>
-            <div style="font-size:14px;color:#444;line-height:1.5;">
+            <div style="font-size:17px;color:#444;line-height:1.6;">
               {detail}
             </div>
-            <div style="font-size:12px;color:#888;margin-top:6px;">
-              Source: {source}
+            <div style="font-size:15px;color:#888;margin-top:8px;">
+              Source: {sources_html}
             </div>
           </td>
         </tr>"""
@@ -242,21 +261,21 @@ def render_items(items):
 def render_html(data, et_date_str, cost):
     note = data.get("note", "")
     note_html = (
-        f'<p style="color:#b45309;font-size:13px;">{note}</p>' if note else ""
+        f'<p style="color:#b45309;font-size:16px;">{note}</p>' if note else ""
     )
 
     return f"""
     <html>
     <body style="font-family: -apple-system, Arial, sans-serif; background:#fafafa; padding:24px;">
-      <div style="max-width:640px;margin:0 auto;background:#fff;border-radius:8px;padding:24px;">
-        <h1 style="font-size:20px;color:#1a1a1a;margin-bottom:4px;">Fast Dolphin's Daily News Digest</h1>
-        <p style="color:#666;font-size:13px;margin-top:0;">{et_date_str}</p>
+      <div style="max-width:680px;margin:0 auto;background:#fff;border-radius:8px;padding:28px;">
+        <h1 style="font-size:26px;color:{HEADER_RED};margin-bottom:4px;">Fast Dolphin's Daily News Digest</h1>
+        <p style="color:#666;font-size:15px;margin-top:0;">{et_date_str}</p>
         {note_html}
-        <h2 style="font-size:16px;color:#1a1a1a;border-bottom:2px solid #1a1a1a;padding-bottom:6px;">Technology News</h2>
+        <h2 style="font-size:20px;color:{HEADER_RED};border-bottom:2px solid {HEADER_RED};padding-bottom:8px;">Technology News</h2>
         <table style="width:100%;border-collapse:collapse;">{render_items(data.get('tech_news', []))}</table>
-        <h2 style="font-size:16px;color:#1a1a1a;border-bottom:2px solid #1a1a1a;padding-bottom:6px;margin-top:24px;">IT &amp; Engineering Staffing News</h2>
+        <h2 style="font-size:20px;color:{HEADER_RED};border-bottom:2px solid {HEADER_RED};padding-bottom:8px;margin-top:28px;">IT &amp; Engineering Staffing News</h2>
         <table style="width:100%;border-collapse:collapse;">{render_items(data.get('staffing_news', []))}</table>
-        <p style="color:#aaa;font-size:11px;margin-top:24px;">
+        <p style="color:#aaa;font-size:13px;margin-top:28px;">
           Generated automatically by Fast Dolphin's Continuous Improvement Initiative.
           Total cost of this run: ${cost:.4f}
         </p>
