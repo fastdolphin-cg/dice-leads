@@ -27,7 +27,13 @@ import anthropic
 STATE_PATH = os.path.join(os.path.dirname(__file__), "state", "last_digest.json")
 
 # Recipients for the daily digest. Add more addresses here to expand to the team.
-RECIPIENTS = ["carlos.guerrero@fastdolphin.com", "ramon.osuna@fastdolphin.com"]
+RECIPIENTS = [
+    "carlos.guerrero@fastdolphin.com",
+    "ramon.osuna@fastdolphin.com",
+    "marisol.acosta@fastdolphin.com",
+    "guillermo.hernandez@fastdolphin.com",
+    "daniel.riojas@fastdolphin.com",
+]
 
 # BCC recipients receive the email but are never shown in the To/Cc headers,
 # so no one else on the list can see their address.
@@ -37,23 +43,38 @@ GMAIL_USER = os.environ["GMAIL_USER"]
 GMAIL_APP_PASSWORD = os.environ["GMAIL_APP_PASSWORD"]
 ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
 
-# Haiku for cost efficiency (matches existing app pattern). Swap to
-# "claude-sonnet-4-6" if you want more nuanced writing later — the cost
-# difference for one digest a day is trivial either way.
-MODEL = "claude-haiku-4-5-20251001"
-
 # Haiku 4.5 pricing (per Anthropic's published rates, as of Sep 2026).
 # If Anthropic changes pricing later, update these constants.
 HAIKU_INPUT_PRICE_PER_MTOK = 1.00
 HAIKU_OUTPUT_PRICE_PER_MTOK = 5.00
 CACHE_READ_PRICE_PER_MTOK = 0.10
 CACHE_WRITE_PRICE_PER_MTOK = 1.25
+
+# Sonnet 4.6 pricing (fallback model, used only if Haiku struggles).
+SONNET_INPUT_PRICE_PER_MTOK = 3.00
+SONNET_OUTPUT_PRICE_PER_MTOK = 15.00
+SONNET_CACHE_READ_PRICE_PER_MTOK = 0.30
+SONNET_CACHE_WRITE_PRICE_PER_MTOK = 3.75
+
 WEB_SEARCH_PRICE_PER_SEARCH = 0.01  # $10 per 1,000 searches
 
 # Always deliver exactly this many verified stories — no visible gaps.
 TECH_TARGET = 7
 STAFFING_TARGET = 3
-MAX_ATTEMPTS = 3  # safety cap so a bad day can't spiral into unbounded API calls
+# Haiku for the first attempts (cost efficiency). If Haiku struggles to
+# produce a clean, fully-sourced response within a few tries, we escalate
+# to Sonnet for the remaining attempts — Sonnet is more reliable at
+# following the strict JSON + sourcing requirements, at a higher but still
+# small per-run cost. This is the real fix for a run coming back empty:
+# there is always enough real news; a zero-story result means something
+# technical broke (response truncation, formatting drift), not a lack of
+# news, so throwing a stronger model at the remaining attempts should
+# resolve it rather than just failing.
+MODEL_HAIKU = "claude-haiku-4-5-20251001"
+MODEL_SONNET = "claude-sonnet-4-6"
+HAIKU_ATTEMPTS = 3   # try the cheap model first
+SONNET_ATTEMPTS = 3  # then escalate if still short
+MAX_ATTEMPTS = HAIKU_ATTEMPTS + SONNET_ATTEMPTS
 
 # ---------------------------------------------------------------------------
 # State (avoids repeating yesterday's stories)
@@ -156,11 +177,11 @@ single item must have a real, verifiable source URL — do not pad with filler,
 low-relevance, or unsourced stories just to hit the count."""
 
 
-def call_claude(prompt):
+def call_claude(prompt, model):
     client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
     response = client.messages.create(
-        model=MODEL,
-        max_tokens=4000,
+        model=model,
+        max_tokens=8000,
         tools=[{"type": "web_search_20250305", "name": "web_search"}],
         messages=[{"role": "user", "content": prompt}],
     )
@@ -180,12 +201,19 @@ def _get(obj, key, default=0):
     return getattr(obj, key, default) or default
 
 
-def calculate_cost(usage):
+def calculate_cost(usage, model):
     """
     Compute the exact dollar cost of this API call from the usage object
     the API actually returned, using Anthropic's published per-token and
-    per-search rates. This is a real measurement, not an estimate.
+    per-search rates for whichever model handled this attempt.
     """
+    if model == MODEL_SONNET:
+        input_price, output_price = SONNET_INPUT_PRICE_PER_MTOK, SONNET_OUTPUT_PRICE_PER_MTOK
+        cache_read_price, cache_write_price = SONNET_CACHE_READ_PRICE_PER_MTOK, SONNET_CACHE_WRITE_PRICE_PER_MTOK
+    else:
+        input_price, output_price = HAIKU_INPUT_PRICE_PER_MTOK, HAIKU_OUTPUT_PRICE_PER_MTOK
+        cache_read_price, cache_write_price = CACHE_READ_PRICE_PER_MTOK, CACHE_WRITE_PRICE_PER_MTOK
+
     input_tokens = _get(usage, "input_tokens")
     output_tokens = _get(usage, "output_tokens")
     cache_read = _get(usage, "cache_read_input_tokens")
@@ -195,10 +223,10 @@ def calculate_cost(usage):
     web_searches = _get(server_tool_use, "web_search_requests")
 
     cost = (
-        (input_tokens / 1_000_000) * HAIKU_INPUT_PRICE_PER_MTOK
-        + (output_tokens / 1_000_000) * HAIKU_OUTPUT_PRICE_PER_MTOK
-        + (cache_read / 1_000_000) * CACHE_READ_PRICE_PER_MTOK
-        + (cache_write / 1_000_000) * CACHE_WRITE_PRICE_PER_MTOK
+        (input_tokens / 1_000_000) * input_price
+        + (output_tokens / 1_000_000) * output_price
+        + (cache_read / 1_000_000) * cache_read_price
+        + (cache_write / 1_000_000) * cache_write_price
         + (web_searches * WEB_SEARCH_PRICE_PER_SEARCH)
     )
     return cost
@@ -261,14 +289,17 @@ def gather_verified_stories(prev_headlines, et_date_str):
             prev_headlines, et_date_str, n_tech_request, n_staffing_request, exclude_titles
         )
 
-        print(f"Attempt {attempt}: requesting {n_tech_request} tech + {n_staffing_request} staffing candidates")
-        raw, usage = call_claude(prompt)
-        total_cost += calculate_cost(usage)
+        model = MODEL_HAIKU if attempt <= HAIKU_ATTEMPTS else MODEL_SONNET
+        print(f"Attempt {attempt}/{MAX_ATTEMPTS} (model: {model}): "
+              f"requesting {n_tech_request} tech + {n_staffing_request} staffing candidates")
+        raw, usage = call_claude(prompt, model)
+        total_cost += calculate_cost(usage, model)
 
         try:
             data = parse_json_response(raw)
         except Exception as e:
             print(f"Attempt {attempt}: failed to parse JSON ({e}), retrying if attempts remain")
+            print(f"Attempt {attempt}: raw response (first 1500 chars):\n{raw[:1500]}")
             continue
 
         new_tech = filter_unsourced(data.get("tech_news", []))
@@ -402,14 +433,16 @@ def main():
     print(f"Actual API cost for this run: ${cost:.4f}")
 
     if len(tech_news) < TECH_TARGET or len(staffing_news) < STAFFING_TARGET:
-        # This should be rare given MAX_ATTEMPTS with buffers, but if it
-        # happens, fail loudly in the Actions log rather than silently
-        # sending a short digest with no explanation anywhere.
+        # Never send an incomplete or blank digest to the team. Fail the
+        # GitHub Actions run loudly instead — that shows up as a red X in
+        # Actions and triggers GitHub's own failure-notification email, so
+        # it gets noticed without embarrassing anyone with a broken email.
         print(
-            f"WARNING: could not reach target counts after {MAX_ATTEMPTS} attempts "
+            f"FAILED: could not reach target counts after {MAX_ATTEMPTS} attempts "
             f"({len(tech_news)}/{TECH_TARGET} tech, {len(staffing_news)}/{STAFFING_TARGET} staffing). "
-            f"Sending what was verified rather than failing the run."
+            f"Not sending an incomplete digest. See attempt logs above for why parsing/sourcing failed."
         )
+        sys.exit(1)
 
     html_body = render_html(tech_news, staffing_news, et_date_str, cost)
     subject = f"Fast Dolphin's Daily News Digest \u2013 {et_date_str}"
