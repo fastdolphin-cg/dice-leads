@@ -59,7 +59,7 @@ SONNET_CACHE_WRITE_PRICE_PER_MTOK = 3.75
 WEB_SEARCH_PRICE_PER_SEARCH = 0.01  # $10 per 1,000 searches
 
 # Always deliver exactly this many verified stories — no visible gaps.
-TECH_TARGET = 7
+TECH_TARGET = 5
 STAFFING_TARGET = 3
 # Haiku for the first attempts (cost efficiency). If Haiku struggles to
 # produce a clean, fully-sourced response within a few tries, we escalate
@@ -126,15 +126,50 @@ Search the web for news published in the last 24 hours (yesterday, US Eastern Ti
 
 TASK:
 1. Select {n_tech} of the biggest, most significant general TECHNOLOGY news stories of
-   the day. Range broadly across the tech industry — ERP/CRM, cloud services, mobile
-   development, telecom/networks, software development, AI, big data/BI, engineering
-   (mechanical, firmware/hardware, aerospace) — or any other major tech story. Prioritize
-   genuine significance and impact over sticking to any fixed category list.
+   the day, using this priority order:
+
+   a. HIGHEST PRIORITY — Enterprise Software / IT platforms: ERP & CRM (SAP, Oracle,
+      PeopleSoft, JD Edwards, Microsoft Dynamics, Salesforce), cloud services (AWS,
+      Google Cloud, Azure, Oracle Cloud, IBM, Red Hat), applications development (Java,
+      Python, Django, Spring, SQL, Angular, WebLogic, Kubernetes, Jira), mobile
+      development (Android Studio, Swift/iOS, Xamarin, React Native), telecom/networks
+      (OSS, BSS, IVR, VPN, firewalls), big data & BI (Hadoop, Hive, MongoDB, NoSQL,
+      Power BI, Informatica, Tableau), and engineering (mechanical design, firmware,
+      hardware, aerospace). This is Fast Dolphin's core business — actively favor
+      strong stories in these areas.
+
+   b. LOWER PRIORITY — general AI news: include an AI story only if it is genuinely
+      one of the most significant tech stories of the day, or if it specifically
+      intersects with enterprise software/IT platforms (e.g. "SAP embeds AI copilot
+      into ERP," not a generic AI-model-release story). Do not let AI dominate the
+      list just because it's currently a heavily-covered topic — actively look for
+      and prefer a solid enterprise-software or platform story over a routine AI
+      story when both are available. AI should end up as a minority of the {n_tech}
+      stories on a typical day, not the majority.
+
+   Prioritize genuine significance and impact within that ordering, not just novelty.
 
 2. Select {n_staffing} of the biggest news stories specifically about IT & Engineering
-   STAFFING — hiring trends, layoffs, workforce shortages, staffing company news,
-   market/salary trends, remote work policy shifts, visa/labor policy affecting
-   IT/engineering hiring.
+   STAFFING, using this priority order:
+
+   a. HIGHEST PRIORITY — immigration/talent mobility: news about bringing IT/engineering
+      talent into the US from abroad — H-1B and other work visa policy, immigration
+      rule changes affecting tech/engineering hiring, government caps or fees on
+      skilled-worker visas, employer sponsorship trends.
+
+   b. HIGH PRIORITY — Latin America staffing/nearshoring: news about IT/engineering
+      staffing, hiring, nearshoring, or workforce trends specifically in Latin America
+      (Mexico, Colombia, Brazil, Argentina, etc.) relevant to US companies staffing
+      from that region.
+
+   c. GENERAL — if there isn't a strong story in (a) or (b) on a given day, fill
+      remaining slots with other significant IT/engineering staffing news: layoffs,
+      hiring trends, workforce shortages, staffing company news, market/salary trends,
+      remote work policy shifts.
+
+   Actively search for (a) and (b) specifically before falling back to (c) — don't
+   default to generic layoff/hiring stories if a real immigration or Latin America
+   story exists that day.
 
 3. Do NOT repeat any of the following headlines already covered in the previous digest,
    unless there has been a genuinely new, significant development — in that case, focus
