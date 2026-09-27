@@ -33,7 +33,7 @@ RECIPIENTS = ["fd@fastdolphin.com"]
 
 # BCC recipients receive the email but are never shown in the To/Cc headers,
 # so no one else on the list can see their address.
-BCC_RECIPIENTS = ["diegoguerrerocota@gmail.com", "cota_d@yahoo.com", "anna038370@gmail.com"]
+BCC_RECIPIENTS = ["diegoguerrerocota@gmail.com", "cg@fastdolphin.com", "cota_d@yahoo.com", "anna038370@gmail.com"]
 
 GMAIL_USER = os.environ["GMAIL_USER"]
 GMAIL_APP_PASSWORD = os.environ["GMAIL_APP_PASSWORD"]
