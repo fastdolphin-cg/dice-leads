@@ -33,7 +33,7 @@ RECIPIENTS = ["fd@fastdolphin.com"]
 
 # BCC recipients receive the email but are never shown in the To/Cc headers,
 # so no one else on the list can see their address.
-BCC_RECIPIENTS = ["diegoguerrerocota@gmail.com", "cg@fastdolphin.com", "cota_d@yahoo.com", "anna038370@gmail.com"]
+BCC_RECIPIENTS = ["diegoguerrerocota@gmail.com", "cota_d@yahoo.com", "anna038370@gmail.com"]
 
 GMAIL_USER = os.environ["GMAIL_USER"]
 GMAIL_APP_PASSWORD = os.environ["GMAIL_APP_PASSWORD"]
@@ -146,9 +146,9 @@ TASK:
    Prioritize genuine significance and impact within that ordering, not just novelty.
 
 2. Select {n_staffing} of the biggest news stories specifically about IT & Engineering
-   STAFFING, using this priority order:
+   STAFFING. Draw from these themes, in this priority order:
 
-   a. HIGHEST PRIORITY — immigration/talent mobility: news about bringing IT/engineering
+   a. HIGH PRIORITY — immigration/talent mobility: news about bringing IT/engineering
       talent into the US from abroad — H-1B and other work visa policy, immigration
       rule changes affecting tech/engineering hiring, government caps or fees on
       skilled-worker visas, employer sponsorship trends.
@@ -158,14 +158,29 @@ TASK:
       (Mexico, Colombia, Brazil, Argentina, etc.) relevant to US companies staffing
       from that region.
 
-   c. GENERAL — if there isn't a strong story in (a) or (b) on a given day, fill
-      remaining slots with other significant IT/engineering staffing news: layoffs,
-      hiring trends, workforce shortages, staffing company news, market/salary trends,
-      remote work policy shifts.
+   c. GENERAL — other significant IT/engineering staffing news: layoffs, hiring
+      trends, workforce shortages, staffing company business news, market/salary
+      trends, remote work policy shifts.
 
-   Actively search for (a) and (b) specifically before falling back to (c) — don't
-   default to generic layoff/hiring stories if a real immigration or Latin America
-   story exists that day.
+   DIVERSITY REQUIREMENT — this is critical: across the {n_staffing} stories, do NOT
+   fill multiple slots with different articles about the SAME underlying event or
+   the same ongoing saga. For example, if three different publications each covered
+   an angle of the same H-1B policy announcement this week, that counts as ONE
+   story, not three — pick the single best-sourced version of it and use the other
+   slots for genuinely different themes. Treat an "underlying event" broadly: the
+   same executive order, the same court ruling, the same company's layoffs, the same
+   piece of legislation, etc., are all one story no matter how many articles discuss
+   it or which angle each takes.
+
+   Aim for topical variety across the {n_staffing} stories rather than depth on one
+   saga: ideally draw from more than one of (a), (b), and (c) rather than all from
+   the same bucket, UNLESS a single bucket genuinely has no other theme worth
+   covering that day. If the immigration/H-1B storyline has already appeared in
+   recent prior digests (see the headlines below) and nothing truly new and
+   concrete has happened since (a new rule actually taking effect, a new specific
+   company sanctioned, a new court decision) — don't include another story that
+   just restates "continued scrutiny" or "heightened crackdown." Rotate to a
+   different theme instead.
 
 3. Do NOT repeat any of the following headlines already covered in the previous digest,
    unless there has been a genuinely new, significant development — in that case, focus
