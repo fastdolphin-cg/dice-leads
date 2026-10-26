@@ -1,13 +1,13 @@
 {
   "headlines": [
-    "Oracle Releases October 2026 Critical Patch Update with 1,295 Fixes for 1,209 CVEs",
-    "AWS Capacity Sold Out Through 2027 with $220B Annual Infrastructure Investment",
-    "Major Enterprise Layoffs Accelerate: 196,000 Tech Workers Affected in 2026 as AI Drives Restructuring",
-    "Nvidia's Financing Role Faces First Major Test as Neocloud Providers Face Market Pressure",
-    "Microsoft Expands Sovereign Cloud Controls for European Customers Amid Data Sovereignty Pressures",
-    "Infosys, TCS, Cognizant Report Massive H-1B Registration Cuts Amid Trump Administration Crackdown",
-    "Trump Administration Suspends Eight Tech Companies from Sponsoring Green Cards Over H-1B Abuse Allegations",
-    "Latin America IT Staffing Market Accelerates as H-1B Costs and Visa Delays Drive Nearshoring Shift"
+    "Critical PHP2Shell Vulnerabilities (CVE-2026-109618/109619) Trigger Global Emergency Response; Active Exploitation Detected",
+    "AWS Capacity Largely Sold Out Through 2027 with 'Good Chunk' of 2028 Booked as AI Demand Surge Continues",
+    "Microsoft Issues Emergency .NET Out-of-Band Security Updates for Critical Brotli Buffer Overflow (CVE-2026-111497)",
+    "AMD Submits Linux Kernel Patches for Official Ryzen Overclocking Driver (AOD)",
+    "Google Cloud Security Operations Fleet Management Flaw Patched After Unauthorized Configuration Change Risk Resolved",
+    "Infosys Under DOJ Investigation Over H-1B Visa Filings; Company Discloses Ongoing Talks with Department of Justice",
+    "Major Indian IT Services Companies Slash H-1B Registration Participation by 91-100% Amid Trump Administration Crackdown",
+    "Tech Layoffs Exceed 2025 Full-Year Total: 196,000+ Workers Affected in 2026 as AI Restructuring Accelerates"
   ],
-  "saved_at": "2026-10-25T11:21:11.041492"
+  "saved_at": "2026-10-26T12:55:23.788243"
 }
