@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from zoneinfo import ZoneInfo
+from html import escape as html_escape
 
 import gspread
 from google.oauth2.service_account import Credentials
@@ -32,6 +33,24 @@ MAX_PAGES = 5
 MAX_JOBS_PER_KEYWORD = 50  # Safety limit per keyword
 MAX_RUN_MINUTES = 18
 DEFAULT_EMP_FILTER = "CONTRACTS%7CTHIRD_PARTY"
+
+# Consultant notification settings
+INTERNAL_DOMAIN = "fastdolphin.com"
+DEFAULT_CONSULTANT_CC = "mariana.esparza@fastdolphin.com"
+DEFAULT_CONSULTANT_BCC = ("ramon.osuna@fastdolphin.com, daniel.riojas@fastdolphin.com, "
+                          "carlos.guerrero@fastdolphin.com")
+CONSULTANT_EMAIL_MAX_JOBS = 30   # jobs listed in the consultant email (rest: "and N more")
+
+# Rows every prompt tab has / extra rows only the Consultant 1-5 tabs have.
+# Each is inserted once, just above the "Prompt" row.
+LAST_RUN_ROW = ["Last Run", ""]
+CONSULTANT_ROWS = [
+    ["Share Sheet ID", ""],
+    ["Consultant Email", ""],
+    ["Consultant CC", DEFAULT_CONSULTANT_CC],
+    ["Consultant BCC", DEFAULT_CONSULTANT_BCC],
+    ["Notify Consultant", "NO"],
+]
 
 # Tab names
 PROMPT_TABS = [
@@ -88,6 +107,31 @@ def reformat_existing_prompt_tab(ws, tab_name):
     setup_prompt_tab(ws, tab_name)
     print(f"✅ Reformatted: {tab_name}")
 
+def yes_no_validation_request(sheet_id, row_idx):
+    """Data-validation request: a YES/NO dropdown on column B of the given row (0-based)."""
+    return {"setDataValidation": {
+        "range": {"sheetId": sheet_id, "startRowIndex": row_idx, "endRowIndex": row_idx + 1,
+                  "startColumnIndex": 1, "endColumnIndex": 2},
+        "rule": {"condition": {"type": "ONE_OF_LIST", "values": [
+            {"userEnteredValue": "YES"}, {"userEnteredValue": "NO"}
+        ]}, "showCustomUi": True, "strict": True}
+    }}
+
+def format_new_rows(ws, start_idx, labels):
+    """Style newly inserted label cells like the others and add the YES/NO dropdown."""
+    requests = [{"repeatCell": {
+        "range": {"sheetId": ws.id, "startRowIndex": start_idx,
+                  "endRowIndex": start_idx + len(labels),
+                  "startColumnIndex": 0, "endColumnIndex": 1},
+        "cell": {"userEnteredFormat": {
+            "textFormat": {"bold": True},
+            "backgroundColor": {"red": 0.85, "green": 0.90, "blue": 0.97}}},
+        "fields": "userEnteredFormat(textFormat,backgroundColor)"
+    }}]
+    if "Notify Consultant" in labels:
+        requests.append(yes_no_validation_request(ws.id, start_idx + labels.index("Notify Consultant")))
+    ws.spreadsheet.batch_update({"requests": requests})
+
 def ensure_sheet_structure(gc):
     """Make sure all 12 tabs exist with correct structure."""
     sh = gc.open_by_key(SHEET_ID)
@@ -100,16 +144,22 @@ def ensure_sheet_structure(gc):
             setup_prompt_tab(ws, prompt_tab)
             print(f"✅ Created prompt tab: {prompt_tab}")
         else:
-            # Ensure "Last Run" row exists in existing tabs
+            # Ensure the extra rows exist in existing tabs (each inserted only once,
+            # all in a single API call, just above the "Prompt" row).
             ws = sh.worksheet(prompt_tab)
             data = ws.get_all_values()
             fields = [row[0].strip() for row in data if row]
-            if "Last Run" not in fields:
-                # Find the row before "Prompt" and insert Last Run there
+            wanted = [LAST_RUN_ROW] + ([] if prompt_tab.startswith("LATAM") else CONSULTANT_ROWS)
+            missing = [list(r) for r in wanted if r[0] not in fields]
+            if missing:
                 for i, row in enumerate(data):
                     if row and row[0].strip() == "Prompt":
-                        ws.insert_row(["Last Run", ""], i + 1)
-                        print(f"✅ Added Last Run row to: {prompt_tab}")
+                        ws.insert_rows(missing, row=i + 1)
+                        print(f"✅ Added rows to {prompt_tab}: {', '.join(r[0] for r in missing)}")
+                        try:
+                            format_new_rows(ws, i, [r[0] for r in missing])
+                        except Exception as e:   # cosmetic only — never fail the run for this
+                            print(f"  ⚠️ Could not style new rows in {prompt_tab}: {e}")
                         break
             print(f"ℹ️  Tab exists: {prompt_tab}")
 
@@ -144,9 +194,11 @@ def setup_prompt_tab(ws, tab_name):
         ["→ Contract Independent", False],
         ["→ Full Time", False],
         ["→ Part Time", False],
-        ["Last Run", ""],
-        ["Prompt", default_prompt],
+        list(LAST_RUN_ROW),
     ]
+    if not is_latam:
+        rows += [list(r) for r in CONSULTANT_ROWS]
+    rows.append(["Prompt", default_prompt])
     ws.update('A1', rows)
 
     # Header row: dark background, white bold text
@@ -154,8 +206,9 @@ def setup_prompt_tab(ws, tab_name):
         "textFormat": {"bold": True, "foregroundColor": {"red": 1, "green": 1, "blue": 1}},
         "backgroundColor": {"red": 0.13, "green": 0.29, "blue": 0.53}
     })
-    # Field labels: bold, light blue background
-    ws.format("A2:A19", {
+    # Field labels: bold, light blue background (every row above "Prompt")
+    prompt_row_idx = next(i for i, r in enumerate(rows) if r[0] == "Prompt")
+    ws.format(f"A2:A{prompt_row_idx}", {
         "textFormat": {"bold": True},
         "backgroundColor": {"red": 0.85, "green": 0.90, "blue": 0.97}
     })
@@ -224,6 +277,11 @@ def setup_prompt_tab(ws, tab_name):
             "rule": {"condition": {"type": "BOOLEAN"}, "showCustomUi": True}
         }},
     ]})
+
+    # Notify Consultant: YES/NO dropdown (Consultant 1-5 tabs only)
+    if not is_latam:
+        notify_idx = next(i for i, r in enumerate(rows) if r[0] == "Notify Consultant")
+        ws.spreadsheet.batch_update({"requests": [yes_no_validation_request(ws.id, notify_idx)]})
 
 def setup_results_tab(ws):
     """Initialize a results tab with headers."""
@@ -294,7 +352,31 @@ def read_prompt_config(gc, prompt_tab):
         "emp_types": emp_types,
         "prompt": config.get("Prompt", ""),
         "last_run": config.get("Last Run", ""),
+        "share_sheet_id": extract_sheet_id(config.get("Share Sheet ID", "")),
+        "consultant_email": parse_email_list(config.get("Consultant Email", "")),
+        "consultant_cc": parse_email_list(config.get("Consultant CC", "")),
+        "consultant_bcc": parse_email_list(config.get("Consultant BCC", "")),
+        "notify_consultant": config.get("Notify Consultant", "NO").strip().upper() == "YES",
     }
+
+def parse_email_list(value):
+    """Split a cell into email addresses (commas, semicolons or new lines). Drops junk."""
+    out = []
+    for token in re.split(r"[,;\n]", value or ""):
+        token = token.strip()
+        if not token:
+            continue
+        if "@" in token and " " not in token:
+            out.append(token)
+        else:
+            print(f"  ⚠️ Ignoring invalid email address: '{token}'")
+    return out
+
+def extract_sheet_id(value):
+    """Accept either a bare Google Sheet ID or a full sheet URL; return the ID."""
+    value = (value or "").strip()
+    m = re.search(r"/d/([a-zA-Z0-9_-]+)", value)
+    return m.group(1) if m else value
 
 def is_due_to_run(config):
     """Check if this prompt is due to run based on scheduled times and last run."""
@@ -697,6 +779,77 @@ def update_last_run(gc, prompt_tab):
     except Exception as e:
         print(f"  ⚠️ Could not update Last Run: {e}")
 
+# Columns that stay internal and are never copied to a shared sheet
+COPY_EXCLUDED_COLUMNS = {"FD Notes"}
+
+def sync_results_copy(gc, results_tab, share_sheet_id):
+    """
+    Mirror a results tab into a separate spreadsheet (e.g. one shared with a consultant).
+    - Internal columns (FD Notes) are left out of the copy.
+    - The copy is rewritten only when its content differs from the source.
+    - Safety: never touches the V2 master sheet, and refuses to overwrite a sheet
+      whose first tab already holds unrelated data.
+    Returns True when the shared copy is confirmed up to date (just updated, or already
+    identical); False when nothing was copied. Raises on API errors after retries.
+    """
+    from gspread.utils import rowcol_to_a1
+
+    if not share_sheet_id:
+        return False
+    if share_sheet_id == SHEET_ID:
+        print(f"  ⚠️ Share Sheet ID for {results_tab} is the V2 master sheet itself — skipped to protect it")
+        return False
+
+    def _clean(rows):
+        # Compare while ignoring trailing empty cells/rows (Sheets pads them)
+        out = []
+        for r in rows:
+            r = list(r)
+            while r and r[-1] == "":
+                r.pop()
+            out.append(r)
+        while out and not out[-1]:
+            out.pop()
+        return out
+
+    def _sync():
+        source = gc.open_by_key(SHEET_ID).worksheet(results_tab).get_all_values()
+        if not source:
+            print(f"  ℹ️ {results_tab} returned no data — shared copy left unchanged")
+            return False
+
+        keep = [i for i, h in enumerate(source[0]) if h.strip() not in COPY_EXCLUDED_COLUMNS]
+        rows = [[(r[i] if i < len(r) else "") for i in keep] for r in source]
+
+        dest_ws = gc.open_by_key(share_sheet_id).get_worksheet(0)
+        existing = dest_ws.get_all_values()
+
+        first_cell = existing[0][0].strip() if existing and existing[0] else ""
+        if first_cell not in ("", "Job Title"):
+            print(f"  ⚠️ First tab of the shared sheet already contains other data "
+                  f"('{first_cell[:30]}') — not overwritten. Use a new blank sheet.")
+            return False
+
+        if _clean(existing) == _clean(rows):
+            print(f"  ✅ Shared copy already up to date ({len(rows) - 1} jobs)")
+            return True
+
+        # Grow the grid if needed (never shrink it)
+        need_rows, need_cols = len(rows) + 50, len(keep)
+        if dest_ws.row_count < need_rows or dest_ws.col_count < need_cols:
+            dest_ws.resize(rows=max(dest_ws.row_count, need_rows),
+                           cols=max(dest_ws.col_count, need_cols))
+
+        dest_ws.clear()
+        dest_ws.update(range_name="A1", values=rows)
+        dest_ws.format(f"A1:{rowcol_to_a1(1, len(keep))}", {"textFormat": {"bold": True}})
+        dest_ws.freeze(rows=1)
+        dest_ws.set_basic_filter()
+        print(f"  ✅ Shared copy updated: {len(rows) - 1} jobs (FD Notes not included)")
+        return True
+
+    return with_retry(_sync)
+
 def write_results(gc, results_tab, new_jobs, run_date, job_retention=30):
     sh = gc.open_by_key(SHEET_ID)
     ws = sh.worksheet(results_tab)
@@ -732,12 +885,14 @@ def write_results(gc, results_tab, new_jobs, run_date, job_retention=30):
     # Add new jobs (dedup within this tab)
     added = 0
     new_rows = []
+    added_jobs = []   # the jobs that were genuinely new (used for the consultant email)
     for job in new_jobs:
         if job["Job URL"] in existing_urls:
             print(f"  ⏭️ Duplicate: {job['Job Title'][:40]}")
             continue
         existing_urls.add(job["Job URL"])
         new_rows.append([job.get(h, "") for h in RESULTS_HEADERS])
+        added_jobs.append(job)
         added += 1
 
     all_rows = new_rows + kept_rows
@@ -749,7 +904,7 @@ def write_results(gc, results_tab, new_jobs, run_date, job_retention=30):
     ws.set_basic_filter()
 
     print(f"  ✅ Added {added} new, kept {len(kept_rows)} existing = {len(all_rows)} total")
-    return added, len(all_rows)
+    return added, len(all_rows), added_jobs
 
 # ─── Email ────────────────────────────────────────────────────────────────────
 def send_notification(config, results_tab, new_count, total_count, run_time):
@@ -807,6 +962,177 @@ def send_notification(config, results_tab, new_count, total_count, run_time):
 
     print(f"  📧 Email sent to: {', '.join(config['emails'])}")
 
+# ─── Consultant notification ──────────────────────────────────────────────────
+def dedupe_addresses(*lists):
+    """Remove repeated addresses across To/CC/BCC (case-insensitive); first list wins."""
+    seen, result = set(), []
+    for lst in lists:
+        cur = []
+        for addr in lst:
+            key = addr.lower()
+            if key not in seen:
+                seen.add(key)
+                cur.append(addr)
+        result.append(cur)
+    return result
+
+def internal_recipients(config):
+    """
+    Recipients for Fast Dolphin's own email. A consultant's (outside) address is never
+    allowed here, even if someone typed it into the Emails row by mistake.
+    @fastdolphin.com addresses are never removed, so internal testing works.
+    """
+    consultant = {e.lower() for e in config.get("consultant_email", [])}
+    keep, removed = [], []
+    for e in config.get("emails", []):
+        if e.lower() in consultant and not e.lower().endswith("@" + INTERNAL_DOMAIN):
+            removed.append(e)
+        else:
+            keep.append(e)
+    if removed:
+        print(f"  ⚠️ Removed consultant address(es) from the internal email: {', '.join(removed)}")
+    return keep
+
+def build_consultant_email(config, added_jobs, total_count, run_time):
+    """Returns (subject, plain_text, html) for the consultant's email. English only."""
+    name = (config.get("name") or "").strip()
+    today = datetime.now(EASTERN).strftime("%B %d, %Y")
+    n = len(added_jobs)
+    plural = "" if n == 1 else "s"
+    sheet_url = f"https://docs.google.com/spreadsheets/d/{config['share_sheet_id']}"
+    subject = (f"New job matches for {name} — {today} ({n} new)" if name
+               else f"New job matches — {today} ({n} new)")
+
+    shown = added_jobs[:CONSULTANT_EMAIL_MAX_JOBS]
+    more = n - len(shown)
+
+    items_html, items_text = [], []
+    for j in shown:
+        title = str(j.get("Job Title") or "Job")
+        url = str(j.get("Job URL") or "")
+        details = " · ".join(str(x) for x in (j.get("Company"), j.get("Location"),
+                                               j.get("Work Type"), j.get("Pay")) if x)
+        if url.startswith("http"):
+            title_html = (f'<a href="{html_escape(url, quote=True)}" '
+                          f'style="color:#1B6CF2;text-decoration:none;font-weight:bold;">'
+                          f'{html_escape(title)}</a>')
+        else:
+            title_html = f"<strong>{html_escape(title)}</strong>"
+        items_html.append(
+            f'<div style="padding:12px 0;border-bottom:1px solid #eee;">{title_html}'
+            f'<div style="color:#666;font-size:13px;margin-top:3px;">{html_escape(details)}</div></div>')
+        items_text.append(f"- {title}\n  {details}\n  {url}".rstrip())
+
+    more_html = (f'<p style="color:#666;font-size:13px;">…and {more} more in your sheet.</p>'
+                 if more > 0 else "")
+    more_text = f"\n…and {more} more in your sheet." if more > 0 else ""
+    greeting = f"Hello {name}," if name else "Hello,"
+
+    html_body = f"""
+<html>
+<body style="font-family: Arial, sans-serif; background: #f4f6f9; padding: 20px;">
+  <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    <div style="background: #0A1628; padding: 28px 32px;">
+      <h1 style="color: white; margin: 0; font-size: 22px;">New job matches</h1>
+      <p style="color: #7B93B8; margin: 6px 0 0;">{html_escape(today)} at {html_escape(run_time)}</p>
+    </div>
+    <div style="padding: 28px 32px;">
+      <p style="font-size: 16px; color: #333;">{html_escape(greeting)}</p>
+      <p style="font-size: 16px; color: #333;">We found <strong>{n} new contract job{plural}</strong> that match your skills:</p>
+      {''.join(items_html)}
+      {more_html}
+      <div style="text-align: center; margin: 28px 0 8px;">
+        <a href="{html_escape(sheet_url, quote=True)}" style="background: #1B6CF2; color: white; padding: 14px 28px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block;">
+          📊 Open your job sheet
+        </a>
+      </div>
+      <p style="color: #888; font-size: 12px; text-align: center;">Your sheet updates automatically and lists all current matches ({total_count} in total).</p>
+    </div>
+    <div style="background: #f9f9f9; padding: 16px 32px; text-align: center; border-top: 1px solid #eee;">
+      <p style="color: #aaa; font-size: 12px; margin: 0;">Fast Dolphin Consulting Group</p>
+    </div>
+  </div>
+</body>
+</html>"""
+
+    text_body = (f"{greeting}\n\nWe found {n} new contract job{plural} that match your skills:\n\n"
+                 + "\n".join(items_text) + more_text
+                 + f"\n\nOpen your job sheet: {sheet_url}\n"
+                 f"Your sheet updates automatically and lists all current matches ({total_count} in total).\n\n"
+                 "Fast Dolphin Consulting Group\n")
+    return subject, text_body, html_body
+
+def send_consultant_notification(config, added_jobs, total_count, run_time):
+    """Send the consultant's own email: To = consultant, CC = Mariana, BCC = internal team."""
+    to_list, cc_list, bcc_list = dedupe_addresses(
+        config["consultant_email"], config.get("consultant_cc", []), config.get("consultant_bcc", []))
+    subject, text_body, html_body = build_consultant_email(config, added_jobs, total_count, run_time)
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = GMAIL_USER
+    msg["To"] = ", ".join(to_list)
+    if cc_list:
+        msg["Cc"] = ", ".join(cc_list)
+    # No Bcc header on purpose: BCC recipients go in the SMTP envelope only, so the
+    # consultant cannot see them.
+    msg.attach(MIMEText(text_body, "plain"))
+    msg.attach(MIMEText(html_body, "html"))
+
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
+        server.sendmail(GMAIL_USER, to_list + cc_list + bcc_list, msg.as_string())
+
+    print(f"  📧 Consultant email sent — To: {', '.join(to_list)} | "
+          f"CC: {', '.join(cc_list) or '-'} | BCC: {len(bcc_list)} hidden")
+
+def notify_consultant(config, added_jobs, total_count, run_time, copy_ok):
+    """Send the consultant's email only when everything is in place. Never raises."""
+    if not config.get("notify_consultant"):
+        return False
+    if not config.get("consultant_email"):
+        print("  ℹ️ Notify Consultant is YES but 'Consultant Email' is empty — consultant email not sent")
+        return False
+    if not config.get("share_sheet_id"):
+        print("  ℹ️ Notify Consultant is YES but 'Share Sheet ID' is empty — consultant email not sent")
+        return False
+    if not added_jobs:
+        print("  ℹ️ No new leads this run — consultant email not sent")
+        return False
+    if not copy_ok:
+        print("  ⚠️ Shared copy was not confirmed up to date — consultant email held back")
+        return False
+    try:
+        send_consultant_notification(config, added_jobs, total_count, run_time)
+        return True
+    except Exception as e:
+        print(f"  ⚠️ Could not send consultant email: {e}")
+        return False
+
+def deliver_results(gc, results_tab, config, added, total, added_jobs, run_time, synced_tabs):
+    """
+    After a scrape: (1) update the consultant's shared copy, (2) send Fast Dolphin's own
+    email (same as before, never includes the consultant), (3) send the consultant's own
+    separate email. The copy goes first so the consultant's link already shows the new jobs.
+    """
+    copy_ok = False
+    if config.get("share_sheet_id"):
+        try:
+            copy_ok = bool(sync_results_copy(gc, results_tab, config["share_sheet_id"]))
+        except Exception as e:
+            print(f"  ⚠️ Could not update shared copy for {results_tab}: {e}")
+        if copy_ok:
+            synced_tabs.add(results_tab)
+
+    if config.get("send_email", True):
+        internal_config = dict(config)
+        internal_config["emails"] = internal_recipients(config)
+        send_notification(internal_config, results_tab, added, total, run_time)
+    else:
+        print("  📧 Email skipped (Notification = No email)")
+
+    notify_consultant(config, added_jobs, total, run_time, copy_ok)
+
 # ─── LATAM Default Prompt ─────────────────────────────────────────────────────
 LATAM_PROMPT = """You are a strict recruiting analyst. Your job is to decide if a job posting has a GENUINE Latin America connection meaning the actual job requirements, candidate location, or language skills involve Latin America.
 
@@ -855,6 +1181,8 @@ if __name__ == "__main__":
 
     # Check which prompts are due to run
     prompts_to_run = []
+    mirror_targets = []  # (results_tab, config) for ON prompts that have a shared copy
+    synced_tabs = set()  # results tabs whose shared copy was already refreshed this run
     sh = gc.open_by_key(SHEET_ID)
     all_tabs = [ws.title for ws in sh.worksheets()]
 
@@ -884,6 +1212,9 @@ if __name__ == "__main__":
         if config is None:
             print(f"⏸️  {actual_prompt_tab}: OFF or not configured")
             continue
+
+        if config.get("share_sheet_id"):
+            mirror_targets.append((results_tab, config))
 
         if not is_due_to_run(config):
             print(f"⏰  {actual_prompt_tab}: not due yet (times: {config['time1']}, {config['time2']})")
@@ -915,14 +1246,24 @@ if __name__ == "__main__":
                 print(f"{'='*60}")
 
                 jobs, run_date, run_time = scrape_for_prompt(config, driver)
-                added, total = write_results(gc, results_tab, jobs, run_date, config.get("job_retention", 30))
+                added, total, added_jobs = write_results(gc, results_tab, jobs, run_date, config.get("job_retention", 30))
                 update_last_run(gc, prompt_tab)
-                if config.get("send_email", True):
-                    send_notification(config, results_tab, added, total, run_time)
-                else:
-                    print(f"  📧 Email skipped (Notification = No email)")
+                deliver_results(gc, results_tab, config, added, total, added_jobs, run_time, synced_tabs)
 
         finally:
             driver.quit()
+
+    # Keep shared copies (e.g. a consultant's own sheet) in sync with their results tabs.
+    # Runs every time; only rewrites when something changed. Never fails the whole run.
+    for results_tab, config in mirror_targets:
+        if results_tab in synced_tabs:
+            continue   # already refreshed right after its scrape
+        print(f"\n🔁 Checking shared copy for: {results_tab}")
+        try:
+            sync_results_copy(gc, results_tab, config["share_sheet_id"])
+        except Exception as e:
+            print(f"  ⚠️ Could not update shared copy for {results_tab}: {e}")
+            print("     Check that the sheet is shared with the service account as Editor "
+                  "and that the Share Sheet ID is correct.")
 
     print("\nDone!")
