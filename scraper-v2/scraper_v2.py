@@ -32,6 +32,11 @@ MAX_DAYS = 30
 MAX_PAGES = 5
 MAX_JOBS_PER_KEYWORD = 50  # Safety limit per keyword
 MAX_RUN_MINUTES = 18
+MIN_DESCRIPTION_CHARS = 100                 # shorter than this = description "not captured"
+UNVERIFIED_MARKER = "Description not captured"   # text in AI Reason that flags a job for manual review
+ERROR_PAGE_PATTERN = re.compile(
+    r"^\s*(40\d|50\d)\b|bad gateway|service unavailable|access denied|just a moment|page not found",
+    re.IGNORECASE)
 DEFAULT_EMP_FILTER = "CONTRACTS%7CTHIRD_PARTY"
 
 # Consultant notification settings
@@ -68,6 +73,10 @@ RESULTS_HEADERS = [
     "Posted Date", "Keyword", "AI Reason", "Run Date", "Run Time",
     "Job URL", "FD Notes"
 ]
+
+def is_unverified(reason):
+    """True when a job was kept only because its description could not be captured."""
+    return UNVERIFIED_MARKER in str(reason or "")[:60]
 
 # ─── Google Sheets ────────────────────────────────────────────────────────────
 def get_sheets_client():
@@ -516,7 +525,17 @@ def extract_description(driver):
                 continue
         if attempt < 2:
             time.sleep(2)
-    # Fallback to skills
+    # Fallback 1: the visible page text, starting at the "Job Details" section
+    try:
+        page_text = driver.find_element(By.TAG_NAME, "body").text.strip()
+        idx = page_text.find("Job Details")
+        chunk = page_text[idx:] if idx >= 0 else page_text
+        if len(chunk) > MIN_DESCRIPTION_CHARS:
+            print("  ⚠️ Used page-text fallback for the description")
+            return chunk[:6000]
+    except:
+        pass
+    # Fallback 2: the skills tags
     try:
         skills_els = driver.find_elements(By.CSS_SELECTOR,
             "div.skill-tag, span.skill, [data-testid='skill']")
@@ -551,59 +570,61 @@ def extract_badges(driver):
         pass
     return ", ".join(emp_types), pay, work_type, corp, duration
 
+def _parse_card(card):
+    """Return {url, title, company, location} for one search-result card, or None."""
+    job_url = ""
+    for url_sel in ['a[data-testid="job-search-job-card-link"]',
+                    'a[data-testid="job-search-job-detail-link"]',
+                    'a[href*="job-detail"]']:
+        try:
+            job_url = card.find_element(By.CSS_SELECTOR, url_sel).get_attribute("href")
+            if job_url:
+                break
+        except:
+            continue
+
+    title = ""
+    for title_sel in ['a[data-testid="job-search-job-detail-link"]',
+                      'a[data-testid="job-search-job-card-link"]',
+                      'h5', 'h4', 'h3']:
+        try:
+            title = card.find_element(By.CSS_SELECTOR, title_sel).text.strip()
+            if title:
+                break
+        except:
+            continue
+
+    location = ""
+    try:
+        location = card.find_element(By.CSS_SELECTOR, 'p.text-sm.font-normal.text-zinc-600').text.strip()
+        # Clean up - take only first line if multiline
+        location = location.split('\n')[0].strip()
+    except:
+        pass
+
+    company = ""
+    try:
+        company = card.find_element(By.CSS_SELECTOR, 'p.mb-0.line-clamp-2.text-sm').text.strip()
+        company = company.split('\n')[0].strip()
+    except:
+        pass
+
+    if job_url and title:
+        return {"url": job_url, "title": title, "company": company, "location": location}
+    return None
+
 def get_cards_from_page(driver):
-    """Extract job cards from search results page."""
-    cards = []
+    """
+    Extract job cards from a search results page. Works for any number of cards, including
+    1 or 2. The first selector that yields at least one real job (link + title) wins, so
+    unrelated page elements cannot hide the real results.
+    """
     for sel in ['div[role="listitem"]', 'article', 'div.card', 'div[data-testid="job-card"]']:
         found = driver.find_elements(By.CSS_SELECTOR, sel)
-        if len(found) > 2:
-            cards = found
-            break
-
-    page_jobs = []
-    for card in cards:
-        job_url = ""
-        for url_sel in ['a[data-testid="job-search-job-card-link"]',
-                        'a[data-testid="job-search-job-detail-link"]',
-                        'a[href*="job-detail"]']:
-            try:
-                job_url = card.find_element(By.CSS_SELECTOR, url_sel).get_attribute("href")
-                if job_url:
-                    break
-            except:
-                continue
-
-        title = ""
-        for title_sel in ['a[data-testid="job-search-job-detail-link"]',
-                          'a[data-testid="job-search-job-card-link"]',
-                          'h5', 'h4', 'h3']:
-            try:
-                title = card.find_element(By.CSS_SELECTOR, title_sel).text.strip()
-                if title:
-                    break
-            except:
-                continue
-
-        location = ""
-        try:
-            location = card.find_element(By.CSS_SELECTOR, 'p.text-sm.font-normal.text-zinc-600').text.strip()
-            # Clean up - take only first line if multiline
-            location = location.split('\n')[0].strip()
-        except:
-            pass
-
-        company = ""
-        try:
-            company = card.find_element(By.CSS_SELECTOR, 'p.mb-0.line-clamp-2.text-sm').text.strip()
-            company = company.split('\n')[0].strip()
-        except:
-            pass
-
-        if job_url and title:
-            page_jobs.append({"url": job_url, "title": title,
-                              "company": company, "location": location})
-
-    return page_jobs
+        jobs = [j for j in (_parse_card(c) for c in found) if j]
+        if jobs:
+            return jobs
+    return []
 
 # ─── AI Filter ────────────────────────────────────────────────────────────────
 def ai_filter_job(title, company, location, keyword, description, prompt_template):
@@ -632,7 +653,7 @@ def ai_filter_job(title, company, location, keyword, description, prompt_templat
         result = json.loads(response_text.strip())
         decision = result.get("decision", "NO").upper()
         reason = result.get("reason", "")
-        print(f"  🤖 AI: {decision} — {reason[:80]}")
+        print(f"  🤖 AI: {decision} — {reason[:300]}")
         return decision == "YES", reason
     except Exception as e:
         print(f"  ⚠️ AI error: {e}")
@@ -647,7 +668,7 @@ def scrape_for_prompt(config, driver):
 
     jobs = []
     seen_urls = set()
-    ai_checked = ai_rejected = 0
+    ai_checked = ai_rejected = flagged = 0
     start_time = time.time()
 
     # Build date filter
@@ -685,6 +706,7 @@ def scrape_for_prompt(config, driver):
 
                 page_jobs = get_cards_from_page(driver)
                 if not page_jobs:
+                    print(f"    📄 Page {page}: results found but no job cards could be read")
                     break
 
                 print(f"    📄 Page {page}: {len(page_jobs)} cards")
@@ -725,13 +747,33 @@ def scrape_for_prompt(config, driver):
                             "[data-testid='recruiter']",
                             "span[class*='recruiter']",
                             "[class*='recruiter']")
+                        if ERROR_PAGE_PATTERN.search(title):
+                            print(f"  ⚠️ Skipping error page: {title[:40]}")
+                            continue
                         posted   = extract_posted_date(driver)
                         desc     = extract_description(driver)
+
+                        if len(desc) < MIN_DESCRIPTION_CHARS:
+                            # One more try: reload the page in case it did not finish loading
+                            try:
+                                driver.get(info["url"])
+                                time.sleep(random.uniform(1, 2))
+                                WebDriverWait(driver, 15).until(
+                                    EC.presence_of_element_located((By.TAG_NAME, "h1")))
+                                desc = extract_description(driver)
+                            except Exception:
+                                pass
 
                         ai_checked += 1
                         kept, reason = ai_filter_job(
                             title, company, location, keyword, desc, config["prompt"]
                         )
+                        needs_review = False
+                        if not kept and len(desc) < MIN_DESCRIPTION_CHARS:
+                            # Nothing to judge from: do not drop it, flag it for a human to review
+                            kept, needs_review = True, True
+                            reason = f"⚠️ {UNVERIFIED_MARKER} — review manually. (AI said: {reason})"
+                            flagged += 1
                         if not kept:
                             ai_rejected += 1
                             print(f"  ❌ {title[:50]}")
@@ -748,7 +790,8 @@ def scrape_for_prompt(config, driver):
                             "Run Date": run_date, "Run Time": run_time,
                             "Job URL": info["url"], "FD Notes": "",
                         })
-                        print(f"  ✅ {title[:60]}")
+                        print(f"  🟡 {title[:60]}  (kept for review: description not captured)" if needs_review
+                              else f"  ✅ {title[:60]}")
 
                     except Exception as e:
                         print(f"  ⚠️ Error: {e}")
@@ -760,7 +803,8 @@ def scrape_for_prompt(config, driver):
                 print(f"  ❌ Page error: {e}")
                 break
 
-    print(f"\n  📊 checked={ai_checked}, rejected={ai_rejected}, kept={len(jobs)}")
+    print(f"\n  📊 checked={ai_checked}, rejected={ai_rejected}, kept={len(jobs)}, "
+          f"needs_review={flagged}")
     return jobs, run_date, run_time
 
 # ─── Write results ────────────────────────────────────────────────────────────
@@ -819,7 +863,11 @@ def sync_results_copy(gc, results_tab, share_sheet_id):
             return False
 
         keep = [i for i, h in enumerate(source[0]) if h.strip() not in COPY_EXCLUDED_COLUMNS]
-        rows = [[(r[i] if i < len(r) else "") for i in keep] for r in source]
+        # Jobs flagged "description not captured" stay internal until someone reviews them
+        reason_idx = source[0].index("AI Reason") if "AI Reason" in source[0] else None
+        body_rows = [r for r in source[1:]
+                     if not (reason_idx is not None and len(r) > reason_idx and is_unverified(r[reason_idx]))]
+        rows = [[(r[i] if i < len(r) else "") for i in keep] for r in [source[0]] + body_rows]
 
         dest_ws = gc.open_by_key(share_sheet_id).get_worksheet(0)
         existing = dest_ws.get_all_values()
@@ -1046,7 +1094,7 @@ def build_consultant_email(config, added_jobs, total_count, run_time):
           📊 Open your job sheet
         </a>
       </div>
-      <p style="color: #888; font-size: 12px; text-align: center;">Your sheet updates automatically and lists all current matches ({total_count} in total).</p>
+      <p style="color: #888; font-size: 12px; text-align: center;">Your sheet updates automatically and always shows all current matches.</p>
     </div>
     <div style="background: #f9f9f9; padding: 16px 32px; text-align: center; border-top: 1px solid #eee;">
       <p style="color: #aaa; font-size: 12px; margin: 0;">Fast Dolphin Consulting Group</p>
@@ -1058,7 +1106,7 @@ def build_consultant_email(config, added_jobs, total_count, run_time):
     text_body = (f"{greeting}\n\nWe found {n} new contract job{plural} that match your skills:\n\n"
                  + "\n".join(items_text) + more_text
                  + f"\n\nOpen your job sheet: {sheet_url}\n"
-                 f"Your sheet updates automatically and lists all current matches ({total_count} in total).\n\n"
+                 "Your sheet updates automatically and always shows all current matches.\n\n"
                  "Fast Dolphin Consulting Group\n")
     return subject, text_body, html_body
 
@@ -1096,8 +1144,9 @@ def notify_consultant(config, added_jobs, total_count, run_time, copy_ok):
     if not config.get("share_sheet_id"):
         print("  ℹ️ Notify Consultant is YES but 'Share Sheet ID' is empty — consultant email not sent")
         return False
+    added_jobs = [j for j in added_jobs if not is_unverified(j.get("AI Reason"))]
     if not added_jobs:
-        print("  ℹ️ No new leads this run — consultant email not sent")
+        print("  ℹ️ No new verified leads this run — consultant email not sent")
         return False
     if not copy_ok:
         print("  ⚠️ Shared copy was not confirmed up to date — consultant email held back")
@@ -1134,39 +1183,73 @@ def deliver_results(gc, results_tab, config, added, total, added_jobs, run_time,
     notify_consultant(config, added_jobs, total, run_time, copy_ok)
 
 # ─── LATAM Default Prompt ─────────────────────────────────────────────────────
-LATAM_PROMPT = """You are a strict recruiting analyst. Your job is to decide if a job posting has a GENUINE Latin America connection meaning the actual job requirements, candidate location, or language skills involve Latin America.
+LATAM_PROMPT = """You are a strict recruiting analyst for an IT and engineering staffing firm. Your job is to decide if a job posting meets BOTH of these conditions:
+(1) It has a GENUINE Latin America connection: the actual job requirements, candidate work location, or language skills involve Latin America.
+(2) It is a role in scope for our firm (see SCOPE below).
 
-STEP 1: Read the ENTIRE job description carefully.
+STEP 1: Read the ENTIRE job description carefully. If the description is empty or very short, judge from the title, company and location alone.
 
-STEP 2: Decide if it is related with Latin America or Spanish/Portuguese language. Keywords include: Latin America, Mexico, Brazil, Colombia, Argentina, Chile, Peru, Ecuador, Costa Rica, Panama, Bolivia, LATAM, Maquiladora, Spanish, Portuguese, and any other Latin American country.
+STEP 2: Decide if the job relates to Latin America or the Spanish/Portuguese language. The following is a partial list of keywords: Latin America, Mexico, Brazil, Colombia, Argentina, Chile, Peru, Ecuador, Costa Rica, Panama, Bolivia, LATAM, Maquiladora, Spanish, Portuguese. Any other Latin American country (such as Paraguay, Uruguay, Venezuela, Honduras, Guatemala, Nicaragua, Dominican Republic) counts too, as long as it appears in the context explained below.
 
 STEP 3: For EACH mention, determine its context.
 
-AUTOMATICALLY REJECT (answer NO) if keywords ONLY appear in:
-- Office location footers: "USA | CANADA | Mexico | INDIA"
-- Company boilerplate: "we have offices in..." or "presence in..."
-- Equal opportunity statements
-- The US state of New Mexico
-- The word "Perl" (programming language) — NOT "Peru"
-- Recruiter contact info or company address
+AUTOMATICALLY REJECT (answer NO) if Latin America, Spanish, Portuguese or any related keyword ONLY appears in:
+- Email signature or footer listing office locations such as "USA | CANADA | Mexico | INDIA" or "offices in New York, Mexico, India"
+- Company boilerplate like "we have offices in..." or "presence in..." or "locations in..." or "internationally in..."
+- Equal opportunity employment statements
+- The US state of New Mexico (not the country Mexico)
+- The word "Perl" (a programming language), which is NOT "Peru"
+- Recruiter contact information or a company address
+- Phrases describing where the COMPANY operates, NOT where the CANDIDATE works
 
-ACCEPT (answer YES) ONLY if keywords appear in:
-- Actual job requirements: "must be bilingual", "Spanish required", "based in Mexico City"
-- Candidate work location: "position in Bogota", "remote from LATAM"
-- Required skills: "LATAM market experience", "serve Latin American clients"
-- Language requirements: "fluent Spanish", "Portuguese required", "bilingual English/Spanish"
-- Role description mentioning LATAM work or clients
+ACCEPT (answer YES) only if Latin America, Spanish, Portuguese or any related keyword appears in:
+- The actual job requirements such as "must be bilingual" or "Spanish required" or "based in Mexico City"
+- The candidate work location such as "position located in Bogota", "remote from LATAM" or "Brazil Remote"
+- Required skills or experience such as "LATAM market experience" or "serve Latin American clients"
+- Language requirements such as "fluent Spanish", "Portuguese required" or "bilingual English/Spanish"
+- The role description itself mentioning LATAM work, teams or clients
+- Any Latin American country, even if not in the keyword list above, as long as it is part of the job requirement and not just a company office mention
+
+SCOPE: the role must ALSO be one of the following. If it is not, answer NO even when the Latin America connection is genuine.
+IN SCOPE:
+- Technology and IT: software development, data and analytics, cybersecurity, cloud, DevOps, infrastructure, networking, QA and testing, IT project and program management, IT and business systems analysts (software, ERP, Salesforce), and IT support (desktop support, IT support technician, deskside or field technician).
+- ERP and enterprise applications: SAP, Oracle, Workday, Salesforce, QAD, JD Edwards, Microsoft Dynamics, ServiceNow and similar. BOTH technical AND functional or business-process consultants are IN scope (for example SAP FICO, SAP SD, SAP MM or Oracle finance system consultants). This is our core business.
+- Engineering: mechanical, electrical, civil, industrial, manufacturing, chemical, structural, systems engineering, etc.
+OUT OF SCOPE (answer NO):
+- Help desk, service desk or call-center style first-level user support (for example "Help Desk Analyst", "Service Desk Agent", "Help Desk Specialist", or a "Technical Support Representative" answering customer calls)
+- Teaching or tutoring, social work, healthcare or clinical roles, sales, customer service, administrative or clerical roles, legal or regulatory affairs, HR or recruiting, marketing
+- Non-IT accounting or finance work (for example bookkeeper or accounts payable clerk). Note that SAP or Oracle finance SYSTEM consultants are IN scope.
+- Do NOT reject a role only because of its industry (healthcare, finance, retail, etc.). A software developer or ERP consultant is in scope in any industry.
+
+CONCRETE EXAMPLES:
+- "USA | CANADA | Mexico | INDIA" in a footer = NO
+- "Support Benefits implementation within the USA" with Mexico only in footer = NO
+- "offices in Mexico City and India" = NO
+- "PruTech has nearshore offices in Mexico City" but job is in Brooklyn NY = NO
+- "Must be fluent in Spanish" for a Java developer = YES
+- "Position based in Guadalajara" for a DevOps engineer = YES
+- "Serve LATAM clients" for an SAP consultant = YES
+- "Senior SAP FICO consultant, remote Brazil, fluent Portuguese required" = YES
+- "QAD ERP Functional Support Consultant (Portuguese speaking)" = YES
+- "Desktop Support Technician, bilingual English/Spanish required" = YES
+- "Nearshore delivery from Mexico" for a software project = YES
+- "Candidate must have experience working with teams in Paraguay" for an IT role = YES
+- "Help Desk Analyst, must be bilingual Spanish/English" = NO (help desk)
+- "Spanish teacher" or "Social worker, Spanish speaking" = NO (not IT or engineering)
+- "Sales representative, Spanish required" = NO (not IT or engineering)
 
 Job Title: {title}
 Company: {company}
 Location: {location}
-Keyword matched: {keyword}
+Keyword that matched: {keyword}
 
 Job Description:
 {description}
 
-Respond with ONLY this JSON:
-{{"decision": "YES" or "NO", "reason": "one sentence explanation"}}"""
+Think step by step. Understand the nature of the job. Check the Latin America connection and the scope. Then decide.
+
+Respond with ONLY a JSON object in this exact format with no other text:
+{{"decision": "YES" or "NO", "reason": "one sentence explaining the specific mention and why it does or does not qualify"}}"""
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
