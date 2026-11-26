@@ -1,13 +1,13 @@
 {
   "headlines": [
-    "Palo Alto Networks Acquires Applied Compute for $4.5 Billion to Secure Enterprise AI Deployment",
-    "Amazon Acquires Decart AI Optimization Technology for $7.5 Billion to Enhance Trainium Chips",
-    "Todoist Confirms Security Breach Affecting 6% of Customers Through Stolen Developer Credentials",
-    "Siemens Advances Industrial AI with Real-Time Edge AI Integration and Autonomous Production",
-    "Salesforce Launches Contact Centre in Australia and New Zealand with Native AI Agents",
+    "Anthropic Rewrites Claude API in Rust, Cuts CPU Usage by 70% with No Downtime",
+    "Red Hat OpenShift 5 Launches with Agentic Troubleshooting and Post-Quantum Security",
+    "GitHub Copilot Now Included in GitHub Enterprise at No Extra Seat Cost",
+    "AWS Extends Multi-Cloud Management with CloudWatch Omni and Systems Manager Automation",
+    "Kubernetes Releases Three Maintenance Updates Across 1.35, 1.36, and 1.37 Series",
     "IBM Ends H-1B and Green Card Sponsorship for Most Consulting Division Roles, Affecting 150,000+ Employees",
     "Infosys H-1B Approvals Surge Eightfold in Texas Amid State Policy Reversal",
-    "Cognizant Hires Lobbying Firm to Address H-1B Visa Costs and Staffing Industry Pressures"
+    "US Labor Department Warns Against Using H-1B as Business Model; Accelerates Investigations into TCS, Infosys, Wipro"
   ],
-  "saved_at": "2026-11-25T17:09:02.398400"
+  "saved_at": "2026-11-26T16:50:04.136135"
 }
